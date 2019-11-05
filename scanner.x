@@ -15,19 +15,20 @@ tokens :-
     \n                                  { \p s -> TokenNL p }
     -- Types and Variables
     \-?$digit+				{ \p s -> TokenInt p (read s :: Int) }
---    \-?$digit+\.$digit			{ \p s -> TokenFloat p (read s) }
+    true                                { \p _ -> TokenBool p True }
+    false                               { \p _ -> TokenBool p False }
 
 {
+data ValueType = VTInt Int
+               | VTBool Bool
+               deriving Show
 data Token =
            -- Types and Variables
            TokenInt AlexPosn Int
---           | TokenFloat AlexPosn Float
+           | TokenBool AlexPosn Bool
+           | TokenLet AlexPosn
            -- Expressions
            | TokenOp AlexPosn String
-           -- Types
---           | TokenTInt AlexPosn
---           | TokenTFloat AlexPosn
---           | TokenTBool AlexPosn
            -- Miscelaneous
            | TokenNL AlexPosn -- \n
            | TokenLC AlexPosn -- {
@@ -38,24 +39,18 @@ data Token =
            | TokenFn AlexPosn -- fn
            | TokenMain AlexPosn -- main
            | TokenReturn AlexPosn -- return
-             deriving (Show)
+           deriving (Show)
 
 -- Extract the position of the token (AlexPosn)
 token_pos (TokenInt p _) = p
---token_pos (TokenFloat p _) = p
---token_pos (TokenBool p _) = p
---token_pos (TokenVar p _) = p
+token_pos (TokenBool p _) = p
+token_pos (TokenLet p) = p
 --             -- Arithmetic Expressions
 token_pos (TokenOp p _) = p
---token_pos (TokenLP p) = p
---token_pos (TokenRP p) = p
 token_pos (TokenLB p) = p
 token_pos (TokenRB p) = p
 token_pos (TokenLC p) = p
 token_pos (TokenRC p) = p
---             -- Methods
---token_pos (TokenRead p) = p
---token_pos (TokenPrintln p) = p
 --             -- Attributions
 --token_pos (TokenAtr p) = p
 --             -- Ifs
@@ -65,17 +60,9 @@ token_pos (TokenRC p) = p
 --             -- While
 --token_pos (TokenWhile p) = p
 --             -- Functions
---token_pos (TokenReturn p) = p
---token_pos (TokenDef p) = p
---             -- Types
---token_pos (TokenTInt p) = p
---token_pos (TokenTFloat p) = p
---token_pos (TokenTBool p) = p
+--token_pos (TokenFn p) = p
 --             -- Miscelaneous
---token_pos (TokenComma p) = p
---token_pos (TokenNew p) = p
---token_pos (TokenEnd p) = p
---token_pos (TokenSep p) = p
+token_pos (TokenSep p) = p
 token_pos (TokenNL p) = p
 
 getLineNum :: AlexPosn -> Int

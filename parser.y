@@ -10,10 +10,9 @@ import Text.Printf
 
 %token
   int                                   { TokenInt _ $$ }
---  float                                 { TokenFloat _ $$ }
---  bool                                  { TokenBool _ $$ }
---  var                                   { TokenVar _ $$ }
-    -- Arithmetic Expressions
+  bool                                  { TokenBool _ $$ }
+  let                                   { TokenLet _ }
+    -- Arithmetic Expessions
   '+'                                   { TokenOp _ "+" }
   '-'                                   { TokenOp _ "-" }
   '*'                                   { TokenOp _ "*" }
@@ -23,9 +22,7 @@ import Text.Printf
   ')'                                   { TokenRB _ }
   '{'                                   { TokenLC _ }
   '}'                                   { TokenRC _ }
---  '['                                   { TokenLP _ }
---  ']'                                   { TokenRP _ }
-    -- Boolean Expressions
+    -- Boolean Expessions
   '!'                                   { TokenOp _ "!" }
   '||'                                  { TokenOp _ "||" }
   '&&'                                  { TokenOp _ "&&" }
@@ -39,24 +36,15 @@ import Text.Printf
     -- Functions
   main                                  { TokenMain _ }
   fn                                    { TokenFn _ }
-  return                                { TokenReturn _ }
-    -- Types
---  tint                                  { TokenTInt _ }
---  tfloat                                { TokenTFloat _ }
---  tbool                                 { TokenTBool _ }
 
     -- Attributions
 --  '='                                   { TokenAtr _ }
     -- Ifs
 --  if                                    { TokenIf _ }
---  elseif                                { TokenElseIf _ }
 --  else                                  { TokenElse _ }
---    -- While
+    -- While
 --  while                                 { TokenWhile _ }
---    -- Miscelaneous
---  ','                                   { TokenComma _ }
---  new                                   { TokenNew _ }
---  end                                   { TokenEnd _ }
+    -- Miscelaneous
   ';'                                   { TokenSep _ }
   nl                                    { TokenNL _ }
 
@@ -76,45 +64,31 @@ Main : fn main '(' ')' '{'
 Statements : Statement nl Statements       { $1 : $3 }
            | {- empty -}                      { [] }
 
-Statement : Expr ';'                          { $1 }
+Statement : Exp ';'                          { $1 }
 
---Type    : tint                                     { TInt }
---        | tfloat                                   { TFloat }
---        | tbool                                    { TBool }
-
---Const   : int                                      { EConst (VTInt $1) }
---        | float                                    { EConst (VTFloat $1) }
---        | bool                                     { EConst (VTBool $1) }
-
-Expr
-    : int                                  { EConst (VTInt $1) }
---    | float                                { $1 }
-    | Expr '+' Expr                        { BiOperation $1 "+" $3 }
-    | Expr '-' Expr                        { BiOperation $1 "-" $3 }
-    | Expr '*' Expr                        { BiOperation $1 "*" $3 }
-    | Expr '/' Expr                        { BiOperation $1 "/" $3 }
-    | Expr '%' Expr                        { BiOperation $1 "%" $3 }
-    | Expr '||' Expr                       { BiOperation $1 "||" $3 }
-    | Expr '&&' Expr                       { BiOperation $1 "&&" $3 }
-    | Expr '==' Expr                       { BiOperation $1 "==" $3 }
-    | Expr '!=' Expr                       { BiOperation $1 "!=" $3 }
-    | Expr '<' Expr                        { BiOperation $1 "<" $3 }
-    | Expr '>' Expr                        { BiOperation $1 ">" $3 }
-    | Expr '<=' Expr                       { BiOperation $1 "<=" $3 }
-    | Expr '>=' Expr                       { BiOperation $1 ">=" $3 }
-    | '-' Expr                             { UnOperation "-" $2 }
---    | Const                                { $1 }
+Exp
+    : int                                  { LitExp (VTInt $1) }
+    | bool                                 { LitExp (VTBool $1) }
+    | Exp '+' Exp                        { BiOperation $1 "+" $3 }
+    | Exp '-' Exp                        { BiOperation $1 "-" $3 }
+    | Exp '*' Exp                        { BiOperation $1 "*" $3 }
+    | Exp '/' Exp                        { BiOperation $1 "/" $3 }
+    | Exp '%' Exp                        { BiOperation $1 "%" $3 }
+    | Exp '||' Exp                       { BiOperation $1 "||" $3 }
+    | Exp '&&' Exp                       { BiOperation $1 "&&" $3 }
+    | Exp '==' Exp                       { BiOperation $1 "==" $3 }
+    | Exp '!=' Exp                       { BiOperation $1 "!=" $3 }
+    | Exp '<' Exp                        { BiOperation $1 "<" $3 }
+    | Exp '>' Exp                        { BiOperation $1 ">" $3 }
+    | Exp '<=' Exp                       { BiOperation $1 "<=" $3 }
+    | Exp '>=' Exp                       { BiOperation $1 ">=" $3 }
+    | '-' Exp                             { UnOperation "-" $2 }
 
 {
 
---data Type = TInt | TFloat | TBool | TPointer Type  deriving (Show, Eq)
-data ValueType = VTInt Int
-               | VTFloat Float -- | VTBool Bool | VTPointer Int
-                 deriving (Show)
-
-data Expr = EConst ValueType
-          | BiOperation Expr String Expr
-          | UnOperation String Expr
+data Exp = LitExp ValueType
+          | BiOperation Exp String Exp
+          | UnOperation String Exp
           deriving Show
 
 parseError :: [Token] -> a
