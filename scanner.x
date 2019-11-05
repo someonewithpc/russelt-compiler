@@ -13,10 +13,17 @@ tokens :-
     [\+\-\*\/\^\%\!\|\&\=\<\>]+         { \p s -> TokenOp p s }
     -- Miscelaneous
     \n                                  { \p s -> TokenNL p }
+    \(                                  { \p s -> TokenLB p }
+    \)                                  { \p s -> TokenRB p }
+    \{                                  { \p s -> TokenLC p }
+    \}                                  { \p s -> TokenRC p }
     -- Types and Variables
     \-?$digit+				{ \p s -> TokenInt p (read s :: Int) }
     true                                { \p _ -> TokenBool p True }
     false                               { \p _ -> TokenBool p False }
+    -- Functions
+    fn                                  { \p _ -> TokenFn p }
+    main                                { \p _ -> TokenMain p }
 
 {
 data ValueType = VTInt Int
