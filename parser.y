@@ -11,7 +11,7 @@ import Text.Printf
 %token
   int                                   { TokenInt _ $$ }
   bool                                  { TokenBool _ $$ }
-  let                                   { TokenLet _ }
+  var                                   { TokenVar _ $$ }
     -- Arithmetic Expessions
   '+'                                   { TokenOp _ "+" }
   '-'                                   { TokenOp _ "-" }
@@ -36,9 +36,9 @@ import Text.Printf
     -- Functions
   main                                  { TokenMain _ }
   fn                                    { TokenFn _ }
-
     -- Attributions
---  '='                                   { TokenAtr _ }
+  let                                   { TokenLet _ }
+  '='                                   { TokenAtr _ }
     -- Ifs
 --  if                                    { TokenIf _ }
 --  else                                  { TokenElse _ }
@@ -54,6 +54,7 @@ import Text.Printf
 %left '*' '/' '%'
 --%left sign
 %left lc ';' --','
+%left '='
 
 %%
 Main : fn main '(' ')' '{'
@@ -61,27 +62,28 @@ Main : fn main '(' ')' '{'
        '}' { $6 }
 
 Statements : Statement Statements       { $1 : $2 }
-           | {- empty -}                      { [] }
+           | {- empty -}                { [] }
 
-Statement : Exp ';'                          { $1 }
+Statement : Exp ';'                     { $1 }
 
 Exp
-    : int                                { LitExp (VTInt $1) }
-    | bool                               { LitExp (VTBool $1) }
-    | Exp '+' Exp                        { BiOperation $1 "+" $3 }
-    | Exp '-' Exp                        { BiOperation $1 "-" $3 }
-    | Exp '*' Exp                        { BiOperation $1 "*" $3 }
-    | Exp '/' Exp                        { BiOperation $1 "/" $3 }
-    | Exp '%' Exp                        { BiOperation $1 "%" $3 }
-    | Exp '||' Exp                       { BiOperation $1 "||" $3 }
-    | Exp '&&' Exp                       { BiOperation $1 "&&" $3 }
-    | Exp '==' Exp                       { BiOperation $1 "==" $3 }
-    | Exp '!=' Exp                       { BiOperation $1 "!=" $3 }
-    | Exp '<' Exp                        { BiOperation $1 "<" $3 }
-    | Exp '>' Exp                        { BiOperation $1 ">" $3 }
-    | Exp '<=' Exp                       { BiOperation $1 "<=" $3 }
-    | Exp '>=' Exp                       { BiOperation $1 ">=" $3 }
-    | '-' Exp                            { UnOperation "-" $2 }
+    : int                               { LitExp (VTInt $1) }
+    | bool                              { LitExp (VTBool $1) }
+    | var                               { LitExp (VTAuto $1) }
+    | Exp '+' Exp                       { BiOperation $1 "+" $3 }
+    | Exp '-' Exp                       { BiOperation $1 "-" $3 }
+    | Exp '*' Exp                       { BiOperation $1 "*" $3 }
+    | Exp '/' Exp                       { BiOperation $1 "/" $3 }
+    | Exp '%' Exp                       { BiOperation $1 "%" $3 }
+    | Exp '||' Exp                      { BiOperation $1 "||" $3 }
+    | Exp '&&' Exp                      { BiOperation $1 "&&" $3 }
+    | Exp '==' Exp                      { BiOperation $1 "==" $3 }
+    | Exp '!=' Exp                      { BiOperation $1 "!=" $3 }
+    | Exp '<' Exp                       { BiOperation $1 "<" $3 }
+    | Exp '>' Exp                       { BiOperation $1 ">" $3 }
+    | Exp '<=' Exp                      { BiOperation $1 "<=" $3 }
+    | Exp '>=' Exp                      { BiOperation $1 ">=" $3 }
+    | '-' Exp                           { UnOperation "-" $2 }
 
 {
 data Exp = LitExp ValueType

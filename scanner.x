@@ -8,7 +8,12 @@ $digit = [0-9]
 $alpha = [a-zA-Z]
 
 tokens :-
+    -- Functions
+    fn                                  { \p _ -> TokenFn p }
+    main                                { \p _ -> TokenMain p }
     [\ \t\f\v\r\n]+			;
+    -- Attributions
+    \=                                  { \p _ -> TokenAtr p }
     -- Expressions
     [\+\-\*\/\^\%\!\|\&\=\<\>]+         { \p s -> TokenOp p s }
     -- Miscelaneous
@@ -16,23 +21,27 @@ tokens :-
     \)                                  { \p s -> TokenRB p }
     \{                                  { \p s -> TokenLC p }
     \}                                  { \p s -> TokenRC p }
+    \;                                  { \p s -> TokenSep p }
     -- Types and Variables
     \-?$digit+				{ \p s -> TokenInt p (read s :: Int) }
     true                                { \p _ -> TokenBool p True }
     false                               { \p _ -> TokenBool p False }
-    -- Functions
-    fn                                  { \p _ -> TokenFn p }
-    main                                { \p _ -> TokenMain p }
+    let                                 { \p _ -> TokenLet p }
+    $alpha [$alpha $digit \_ !]*	{ \p s -> TokenVar p s }
 
 {
 data ValueType = VTInt Int
                | VTBool Bool
+               | VTAuto String
                deriving Show
 data Token =
            -- Types and Variables
            TokenInt AlexPosn Int
            | TokenBool AlexPosn Bool
-           | TokenLet AlexPosn
+           | TokenVar AlexPosn String
+           -- Attributions
+           | TokenLet AlexPosn -- let
+           | TokenAtr AlexPosn -- =
            -- Expressions
            | TokenOp AlexPosn String
            -- Miscelaneous
@@ -46,27 +55,27 @@ data Token =
            | TokenReturn AlexPosn -- return
            deriving (Show)
 
--- Extract the position of the token (AlexPosn)
+            -- Extract the position of the token (AlexPosn)
 token_pos (TokenInt p _) = p
 token_pos (TokenBool p _) = p
 token_pos (TokenLet p) = p
---             -- Arithmetic Expressions
+            -- Expressions
 token_pos (TokenOp p _) = p
 token_pos (TokenLB p) = p
 token_pos (TokenRB p) = p
 token_pos (TokenLC p) = p
 token_pos (TokenRC p) = p
---             -- Attributions
+            -- Attributions
 --token_pos (TokenAtr p) = p
---             -- Ifs
+            -- Ifs
 --token_pos (TokenIf p) = p
 --token_pos (TokenElseIf p) = p
 --token_pos (TokenElse p) = p
---             -- While
+            -- While
 --token_pos (TokenWhile p) = p
---             -- Functions
+            -- Functions
 --token_pos (TokenFn p) = p
---             -- Miscelaneous
+            -- Miscelaneous
 token_pos (TokenSep p) = p
 
 getLineNum :: AlexPosn -> Int
@@ -81,9 +90,8 @@ scan_tokens str = go (alexStartPos, '\n', [], str)
               case alexScan inp 0 of
                 AlexEOF -> []
                 AlexError _ ->
-                        error ("Error at " ++ show (getLineNum(pos)) ++
-                               ":" ++ show (getColumnNum(pos)) ++ " near: " ++
-                               str)
+                        error ("Error at " ++ show (getLineNum(pos)) ++ ":"
+                        ++ show (getColumnNum(pos)) ++ " near: " ++ str)
                 AlexSkip inp' len -> go inp'
                 AlexToken inp' len act -> act pos (take len str) : go inp'
 }
