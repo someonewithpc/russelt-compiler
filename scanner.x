@@ -8,11 +8,10 @@ $digit = [0-9]
 $alpha = [a-zA-Z]
 
 tokens :-
-    [\ \t\f\v\r]+			;
+    [\ \t\f\v\r\n]+			;
     -- Expressions
     [\+\-\*\/\^\%\!\|\&\=\<\>]+         { \p s -> TokenOp p s }
     -- Miscelaneous
-    \n                                  { \p s -> TokenNL p }
     \(                                  { \p s -> TokenLB p }
     \)                                  { \p s -> TokenRB p }
     \{                                  { \p s -> TokenLC p }
@@ -37,7 +36,6 @@ data Token =
            -- Expressions
            | TokenOp AlexPosn String
            -- Miscelaneous
-           | TokenNL AlexPosn -- \n
            | TokenLC AlexPosn -- {
            | TokenRC AlexPosn -- }
            | TokenLB AlexPosn -- (
@@ -70,7 +68,6 @@ token_pos (TokenRC p) = p
 --token_pos (TokenFn p) = p
 --             -- Miscelaneous
 token_pos (TokenSep p) = p
-token_pos (TokenNL p) = p
 
 getLineNum :: AlexPosn -> Int
 getLineNum (AlexPn _ lineNum _) = lineNum
@@ -78,13 +75,8 @@ getLineNum (AlexPn _ lineNum _) = lineNum
 getColumnNum :: AlexPosn -> Int
 getColumnNum (AlexPn _ _ colNum) = colNum
 
-trim :: [Token] -> [Token]
-trim [] = []
-trim ((TokenLC p1):ts) = ts
-trim ts = ts
-
 scan_tokens :: String -> [Token]
-scan_tokens str = trim (go (alexStartPos, '\n', [], str))
+scan_tokens str = go (alexStartPos, '\n', [], str)
     where go inp@(pos, _, _, str) =
               case alexScan inp 0 of
                 AlexEOF -> []

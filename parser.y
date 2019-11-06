@@ -46,7 +46,6 @@ import Text.Printf
 --  while                                 { TokenWhile _ }
     -- Miscelaneous
   ';'                                   { TokenSep _ }
-  nl                                    { TokenNL _ }
 
 %nonassoc '>' '<' '<=' '>=' '==' '!=' '!'
 %left '||'
@@ -61,14 +60,14 @@ Main : fn main '(' ')' '{'
             Statements
        '}' { $6 }
 
-Statements : Statement nl Statements       { $1 : $3 }
+Statements : Statement Statements       { $1 : $2 }
            | {- empty -}                      { [] }
 
 Statement : Exp ';'                          { $1 }
 
 Exp
-    : int                                  { LitExp (VTInt $1) }
-    | bool                                 { LitExp (VTBool $1) }
+    : int                                { LitExp (VTInt $1) }
+    | bool                               { LitExp (VTBool $1) }
     | Exp '+' Exp                        { BiOperation $1 "+" $3 }
     | Exp '-' Exp                        { BiOperation $1 "-" $3 }
     | Exp '*' Exp                        { BiOperation $1 "*" $3 }
@@ -82,10 +81,9 @@ Exp
     | Exp '>' Exp                        { BiOperation $1 ">" $3 }
     | Exp '<=' Exp                       { BiOperation $1 "<=" $3 }
     | Exp '>=' Exp                       { BiOperation $1 ">=" $3 }
-    | '-' Exp                             { UnOperation "-" $2 }
+    | '-' Exp                            { UnOperation "-" $2 }
 
 {
-
 data Exp = LitExp ValueType
           | BiOperation Exp String Exp
           | UnOperation String Exp
