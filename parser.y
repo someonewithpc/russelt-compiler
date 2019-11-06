@@ -96,8 +96,13 @@ parseError (token:tokenList) = let pos = token_pos(token) in
                        error ("parse error at line " ++ show(getLineNum(pos)) ++ " and column " ++ show(getColumnNum(pos)))
 parseError _ = error "parse error"
 
-main :: IO()
+
+main :: IO ()
 main = do
-        s <- getContents
-        print (scan_tokens s)
+        raw_input <- getContents
+        let token_list = scan_tokens raw_input
+        let parse_tree = parse token_list
+
+        putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
+        putStrLn ("Parse Tree:\n" ++ (show parse_tree) ++ "\n")
 }
