@@ -27,7 +27,11 @@ tokens :-
     true                                { \p _ -> TokenBool p True }
     false                               { \p _ -> TokenBool p False }
     let                                 { \p _ -> TokenLet p }
-    $alpha [$alpha $digit \_ !]*	{ \p s -> TokenVar p s }
+    $alpha [$alpha $digit \_ !]*        { \p s -> TokenVar p s }
+    -- Control flow
+    if                                  { \p _ -> TokenIf p }
+    else                                { \p _ -> TokenElse p }
+    while                               { \p _ -> TokenWhile p }
 
 {
 data ValueType = VTInt Int
@@ -53,30 +57,52 @@ data Token =
            | TokenFn AlexPosn -- fn
            | TokenMain AlexPosn -- main
            | TokenReturn AlexPosn -- return
+           -- Control flow
+           | TokenIf AlexPosn -- if
+           | TokenElse AlexPosn -- else
+           | TokenWhile AlexPosn -- while
            deriving (Show)
 
-            -- Extract the position of the token (AlexPosn)
-token_pos (TokenInt p _) = p
-token_pos (TokenBool p _) = p
-token_pos (TokenLet p) = p
-            -- Expressions
+token_pos (TokenFn p) = p
+token_pos (TokenMain p) = p
+token_pos (TokenAtr p) = p
 token_pos (TokenOp p _) = p
 token_pos (TokenLB p) = p
 token_pos (TokenRB p) = p
 token_pos (TokenLC p) = p
 token_pos (TokenRC p) = p
-            -- Attributions
---token_pos (TokenAtr p) = p
-            -- Ifs
---token_pos (TokenIf p) = p
---token_pos (TokenElseIf p) = p
---token_pos (TokenElse p) = p
-            -- While
---token_pos (TokenWhile p) = p
-            -- Functions
---token_pos (TokenFn p) = p
-            -- Miscelaneous
 token_pos (TokenSep p) = p
+token_pos (TokenInt p _) = p
+token_pos (TokenBool p _) = p
+token_pos (TokenLet p) = p
+token_pos (TokenVar p s) = p
+token_pos (TokenIf p) = p
+token_pos (TokenElse p) = p
+token_pos (TokenWhile p) = p
+
+
+-- -- Extract the position of the token (AlexPosn)
+-- token_pos (TokenInt p _) = p
+-- token_pos (TokenBool p _) = p
+-- token_pos (TokenLet p) = p
+--             -- Expressions
+-- token_pos (TokenOp p _) = p
+-- token_pos (TokenLB p) = p
+-- token_pos (TokenRB p) = p
+-- token_pos (TokenLC p) = p
+-- token_pos (TokenRC p) = p
+--             -- Attributions
+-- --token_pos (TokenAtr p) = p
+--             -- Ifs
+-- token_pos (TokenIf p) = p
+-- --token_pos (TokenElseIf p) = p
+-- token_pos (TokenElse p) = p
+--             -- While
+-- token_pos (TokenWhile p) = p
+--             -- Functions
+-- token_pos (TokenFn p) = p
+--             -- Miscelaneous
+-- token_pos (TokenSep p) = p
 
 getLineNum :: AlexPosn -> Int
 getLineNum (AlexPn _ lineNum _) = lineNum
