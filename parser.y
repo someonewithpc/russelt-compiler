@@ -2,6 +2,7 @@
 module Main where
 import Lexer
 import Text.Printf
+import Data.List
 }
 
 %name parse
@@ -136,7 +137,10 @@ data Statement = Expression Exp
 
 data Tree = FuncDecl String [Statement]
           | Statements [Statement]
-          deriving Show
+
+instance Show Tree where
+  show (FuncDecl name statements) = "\n" ++ name ++ "\n" ++ (intercalate "\n" (map show statements))
+  show (Statements statements) = "\n" ++ intercalate "\n" (map show statements)
 
 parseError :: [Token] -> a
 parseError (token:tokenList) = let pos = token_pos(token) in
@@ -150,6 +154,6 @@ main = do
         let token_list = scan_tokens raw_input
         let parse_tree = parse token_list
 
-        putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
+--        putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
         putStrLn ("Parse Tree:\n" ++ (show parse_tree) ++ "\n")
 }
