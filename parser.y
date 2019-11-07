@@ -11,7 +11,6 @@ import Text.Printf
 %token
   int                                   { TokenInt _ $$ }
   bool                                  { TokenBool _ $$ }
-  var                                   { TokenVar _ $$ }
     -- Arithmetic Expessions
   '+'                                   { TokenOp _ "+" }
   '-'                                   { TokenOp _ "-" }
@@ -38,12 +37,13 @@ import Text.Printf
   fn                                    { TokenFn _ }
     -- Attributions
   let                                   { TokenLet _ }
+  var                                   { TokenVar _ $$ }
   '='                                   { TokenAtr _ }
     -- Ifs
---  if                                    { TokenIf _ }
---  else                                  { TokenElse _ }
+  if                                    { TokenIf _ }
+  else                                  { TokenElse _ }
     -- While
---  while                                 { TokenWhile _ }
+  while                                 { TokenWhile _ }
     -- Miscelaneous
   ';'                                   { TokenSep _ }
 
@@ -52,24 +52,31 @@ import Text.Printf
 %left '&&'
 %left '+' '-'
 %left '*' '/' '%'
---%left sign
-%left lc ';' --','
+%left ';' ','
 %left '='
 
 %%
-Main : fn main '(' ')' '{'
-            Statements
-       '}' { $6 }
+Main : fn main '(' ')' Block { Func "main" $5 }
+
+Statement : Exp ';'                     { Expression $1 }
+          | let var '=' Exp ';'         { Attr $2 $4 }
+          | If                          { $1 }
 
 Statements : Statement Statements       { $1 : $2 }
            | {- empty -}                { [] }
 
-Statement : Exp ';'                     { $1 }
+Block : '{' Statements '}'              { $2 }
+      | Statement                       { [$1] }
+
+If : if Exp Block                       { IfStmt $2 $3 [] }
+   | if Exp Block else Block            { IfStmt $2 $3 $5 }
+
+While : while Exp Block                 { WhileStmt $2 $3 }
 
 Exp
     : int                               { LitExp (VTInt $1) }
     | bool                              { LitExp (VTBool $1) }
-    | var                               { LitExp (VTAuto $1) }
+    | var                               { Var $1 }
     | Exp '+' Exp                       { BiOperation $1 "+" $3 }
     | Exp '-' Exp                       { BiOperation $1 "-" $3 }
     | Exp '*' Exp                       { BiOperation $1 "*" $3 }
@@ -84,17 +91,29 @@ Exp
     | Exp '<=' Exp                      { BiOperation $1 "<=" $3 }
     | Exp '>=' Exp                      { BiOperation $1 ">=" $3 }
     | '-' Exp                           { UnOperation "-" $2 }
-
+    | '(' Exp ')'                       { $2 }
 {
+
 data Exp = LitExp ValueType
-          | BiOperation Exp String Exp
-          | UnOperation String Exp
+         | Var String
+         | BiOperation Exp String Exp
+         | UnOperation String Exp
+         deriving Show
+
+data Statement = Expression Exp
+               | Attr String Exp
+               | IfStmt Exp [Statement] [Statement]
+               | WhileStmt Exp [Statement]
+               deriving Show
+
+data Tree = Func String [Statement]
+          | Statements [Statement]
           deriving Show
 
 parseError :: [Token] -> a
 parseError (token:tokenList) = let pos = token_pos(token) in
-                       error ("parse error at line " ++ show(getLineNum(pos)) ++ " and column " ++ show(getColumnNum(pos)))
-parseError _ = error "parse error"
+                       error ("Parse error at " ++ show(getLineNum(pos)) ++ ":" ++ show(getColumnNum(pos)) ++ " - " ++ show(token))
+parseError _ = error "Parse error"
 
 
 main :: IO ()

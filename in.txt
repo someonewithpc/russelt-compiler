@@ -1,4 +1,7 @@
-fn main ()
-{
-        4+2;
+fn main () {
+  while true {
+     if 3 > 2 {
+        let x = 3;
+     }
+  }
 }
