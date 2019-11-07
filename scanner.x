@@ -16,11 +16,13 @@ tokens :-
     -- Expressions
     [\+\-\*\/\^\%\!\|\&\=\<\>]+         { \p s -> TokenOp p s }
     -- Miscelaneous
-    \(                                  { \p s -> TokenLB p }
-    \)                                  { \p s -> TokenRB p }
-    \{                                  { \p s -> TokenLC p }
-    \}                                  { \p s -> TokenRC p }
-    \;                                  { \p s -> TokenSep p }
+    \(                                  { \p _ -> TokenLB p }
+    \)					{ \p _ -> TokenRB p }
+    \{					{ \p _ -> TokenLC p }
+    \}					{ \p _ -> TokenRC p }
+    \;					{ \p _ -> TokenSemi p }
+    \,                                  { \p _ -> TokenComma p }
+    \:                                  { \p _ -> TokenColon p }
     -- Types and Variables
     \-?$digit+				{ \p s -> TokenInt p (read s :: Int) }
     true                                { \p _ -> TokenBool p True }
@@ -30,6 +32,8 @@ tokens :-
     if                                  { \p _ -> TokenIf p }
     else                                { \p _ -> TokenElse p }
     while                               { \p _ -> TokenWhile p }
+    read_line                           { \p s -> TokenBuiltin p s }
+    println                             { \p s -> TokenBuiltin p s }
     $alpha [$alpha $digit \_ !]*        { \p s -> TokenIdentifier p s }
 
 {
@@ -41,18 +45,21 @@ data Token =
            -- Types and Variables
            TokenInt AlexPosn Int
            | TokenBool AlexPosn Bool
-           | TokenIdentifier AlexPosn String
            -- Attributions
            | TokenLet AlexPosn -- let
            | TokenAtr AlexPosn -- =
            -- Expressions
            | TokenOp AlexPosn String
            -- Miscelaneous
+           | TokenIdentifier AlexPosn String
+           | TokenBuiltin AlexPosn String -- read_line, println
            | TokenLC AlexPosn -- {
            | TokenRC AlexPosn -- }
            | TokenLB AlexPosn -- (
            | TokenRB AlexPosn -- )
-           | TokenSep AlexPosn -- ;
+           | TokenSemi AlexPosn -- ;
+           | TokenColon AlexPosn -- :
+           | TokenComma AlexPosn -- ,
            | TokenFn AlexPosn -- fn
            | TokenMain AlexPosn -- main
            | TokenReturn AlexPosn -- return
@@ -63,22 +70,23 @@ data Token =
            deriving (Show)
 
 token_pos (TokenFn p) = p
-token_pos (TokenMain p) = p
 token_pos (TokenAtr p) = p
 token_pos (TokenOp p _) = p
 token_pos (TokenLB p) = p
 token_pos (TokenRB p) = p
 token_pos (TokenLC p) = p
 token_pos (TokenRC p) = p
-token_pos (TokenSep p) = p
+token_pos (TokenSemi p) = p
+token_pos (TokenColon p) = p
+token_pos (TokenComma p) = p
 token_pos (TokenInt p _) = p
 token_pos (TokenBool p _) = p
 token_pos (TokenLet p) = p
-token_pos (TokenIdentifier p s) = p
 token_pos (TokenIf p) = p
 token_pos (TokenElse p) = p
 token_pos (TokenWhile p) = p
-
+token_pos (TokenBuiltin p _) = p
+token_pos (TokenIdentifier p _) = p
 
 -- -- Extract the position of the token (AlexPosn)
 -- token_pos (TokenInt p _) = p
@@ -101,7 +109,7 @@ token_pos (TokenWhile p) = p
 --             -- Functions
 -- token_pos (TokenFn p) = p
 --             -- Miscelaneous
--- token_pos (TokenSep p) = p
+-- token_pos (TokenSemi p) = p
 
 getLineNum :: AlexPosn -> Int
 getLineNum (AlexPn _ lineNum _) = lineNum
