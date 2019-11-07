@@ -10,7 +10,6 @@ $alpha = [a-zA-Z]
 tokens :-
     -- Functions
     fn                                  { \p _ -> TokenFn p }
-    main                                { \p _ -> TokenMain p }
     [\ \t\f\v\r\n]+			;
     -- Attributions
     \=                                  { \p _ -> TokenAtr p }
@@ -27,11 +26,11 @@ tokens :-
     true                                { \p _ -> TokenBool p True }
     false                               { \p _ -> TokenBool p False }
     let                                 { \p _ -> TokenLet p }
-    $alpha [$alpha $digit \_ !]*        { \p s -> TokenVar p s }
     -- Control flow
     if                                  { \p _ -> TokenIf p }
     else                                { \p _ -> TokenElse p }
     while                               { \p _ -> TokenWhile p }
+    $alpha [$alpha $digit \_ !]*        { \p s -> TokenIdentifier p s }
 
 {
 data ValueType = VTInt Int
@@ -42,7 +41,7 @@ data Token =
            -- Types and Variables
            TokenInt AlexPosn Int
            | TokenBool AlexPosn Bool
-           | TokenVar AlexPosn String
+           | TokenIdentifier AlexPosn String
            -- Attributions
            | TokenLet AlexPosn -- let
            | TokenAtr AlexPosn -- =
@@ -75,7 +74,7 @@ token_pos (TokenSep p) = p
 token_pos (TokenInt p _) = p
 token_pos (TokenBool p _) = p
 token_pos (TokenLet p) = p
-token_pos (TokenVar p s) = p
+token_pos (TokenIdentifier p s) = p
 token_pos (TokenIf p) = p
 token_pos (TokenElse p) = p
 token_pos (TokenWhile p) = p

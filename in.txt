@@ -1,7 +1,5 @@
 fn main () {
-  while true {
-     if 3 > 2 {
-        let x = 3;
-     }
+  if 3 > 2 {
+     let x = 3;
   }
 }
