@@ -33,11 +33,9 @@ import Text.Printf
   '<='                                  { TokenOp _ "<=" }
   '>='                                  { TokenOp _ ">=" }
     -- Functions
-  main                                  { TokenMain _ }
   fn                                    { TokenFn _ }
     -- Attributions
   let                                   { TokenLet _ }
-  var                                   { TokenVar _ $$ }
   '='                                   { TokenAtr _ }
     -- Ifs
   if                                    { TokenIf _ }
@@ -45,6 +43,7 @@ import Text.Printf
     -- While
   while                                 { TokenWhile _ }
     -- Miscelaneous
+  id                                    { TokenIdentifier _ $$ }
   ';'                                   { TokenSep _ }
 
 %nonassoc '>' '<' '<=' '>=' '==' '!=' '!'
@@ -56,17 +55,17 @@ import Text.Printf
 %left '='
 
 %%
-Main : fn main '(' ')' Block { Func "main" $5 }
+Main : fn id '(' ')' Block { Func $2 $5 }
 
 Statement : Exp ';'                     { Expression $1 }
-          | let var '=' Exp ';'         { Attr $2 $4 }
+          | let id '=' Exp ';'          { Attr $2 $4 }
           | If                          { $1 }
+          | While                       { $1 }
 
 Statements : Statement Statements       { $1 : $2 }
            | {- empty -}                { [] }
 
 Block : '{' Statements '}'              { $2 }
-      | Statement                       { [$1] }
 
 If : if Exp Block                       { IfStmt $2 $3 [] }
    | if Exp Block else Block            { IfStmt $2 $3 $5 }
@@ -74,30 +73,35 @@ If : if Exp Block                       { IfStmt $2 $3 [] }
 While : while Exp Block                 { WhileStmt $2 $3 }
 
 Exp
+    -- Value Expressions
     : int                               { LitExp (VTInt $1) }
     | bool                              { LitExp (VTBool $1) }
-    | var                               { Var $1 }
-    | Exp '+' Exp                       { BiOperation $1 "+" $3 }
-    | Exp '-' Exp                       { BiOperation $1 "-" $3 }
-    | Exp '*' Exp                       { BiOperation $1 "*" $3 }
-    | Exp '/' Exp                       { BiOperation $1 "/" $3 }
-    | Exp '%' Exp                       { BiOperation $1 "%" $3 }
-    | Exp '||' Exp                      { BiOperation $1 "||" $3 }
-    | Exp '&&' Exp                      { BiOperation $1 "&&" $3 }
-    | Exp '==' Exp                      { BiOperation $1 "==" $3 }
-    | Exp '!=' Exp                      { BiOperation $1 "!=" $3 }
-    | Exp '<' Exp                       { BiOperation $1 "<" $3 }
-    | Exp '>' Exp                       { BiOperation $1 ">" $3 }
-    | Exp '<=' Exp                      { BiOperation $1 "<=" $3 }
-    | Exp '>=' Exp                      { BiOperation $1 ">=" $3 }
-    | '-' Exp                           { UnOperation "-" $2 }
+    | id                                { Var $1 }
+    -- Arithmetic Operators
+    | Exp '+' Exp                       { BinaryOp $1 "+" $3 }
+    | Exp '-' Exp                       { BinaryOp $1 "-" $3 }
+    | Exp '*' Exp                       { BinaryOp $1 "*" $3 }
+    | Exp '/' Exp                       { BinaryOp $1 "/" $3 }
+    | Exp '%' Exp                       { BinaryOp $1 "%" $3 }
+    | '-' Exp                           { UnaryOp "-" $2 }
+    -- Boolean Operators
+    | Exp '||' Exp                      { BinaryOp $1 "||" $3 }
+    | Exp '&&' Exp                      { BinaryOp $1 "&&" $3 }
+    | Exp '==' Exp                      { BinaryOp $1 "==" $3 }
+    | Exp '!=' Exp                      { BinaryOp $1 "!=" $3 }
+    | Exp '<' Exp                       { BinaryOp $1 "<" $3 }
+    | Exp '>' Exp                       { BinaryOp $1 ">" $3 }
+    | Exp '<=' Exp                      { BinaryOp $1 "<=" $3 }
+    | Exp '>=' Exp                      { BinaryOp $1 ">=" $3 }
+    | '!' Exp                           { UnaryOp "!" $2 }
+    -- Misc
     | '(' Exp ')'                       { $2 }
 {
 
 data Exp = LitExp ValueType
          | Var String
-         | BiOperation Exp String Exp
-         | UnOperation String Exp
+         | BinaryOp Exp String Exp
+         | UnaryOp String Exp
          deriving Show
 
 data Statement = Expression Exp
