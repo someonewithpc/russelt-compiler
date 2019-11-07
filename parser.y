@@ -69,6 +69,7 @@ Block : '{' Statements '}'              { $2 }
 
 If : if Exp Block                       { IfStmt $2 $3 [] }
    | if Exp Block else Block            { IfStmt $2 $3 $5 }
+   | if Exp Block else If               { IfStmt $2 $3 [$5] }
 
 While : while Exp Block                 { WhileStmt $2 $3 }
 
