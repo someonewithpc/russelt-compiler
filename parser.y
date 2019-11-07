@@ -11,16 +11,20 @@ import Text.Printf
 %token
   int                                   { TokenInt _ $$ }
   bool                                  { TokenBool _ $$ }
+  -- Symbols
+  ';'                                   { TokenSemi _ }
+  ':'                                   { TokenColon _ }
+  ','                                   { TokenComma _ }
+  '('                                   { TokenLB _ }
+  ')'                                   { TokenRB _ }
+  '{'                                   { TokenLC _ }
+  '}'                                   { TokenRC _ }
     -- Arithmetic Expessions
   '+'                                   { TokenOp _ "+" }
   '-'                                   { TokenOp _ "-" }
   '*'                                   { TokenOp _ "*" }
   '/'                                   { TokenOp _ "/" }
   '%'                                   { TokenOp _ "%" }
-  '('                                   { TokenLB _ }
-  ')'                                   { TokenRB _ }
-  '{'                                   { TokenLC _ }
-  '}'                                   { TokenRC _ }
     -- Boolean Expessions
   '!'                                   { TokenOp _ "!" }
   '||'                                  { TokenOp _ "||" }
@@ -44,7 +48,7 @@ import Text.Printf
   while                                 { TokenWhile _ }
     -- Miscelaneous
   id                                    { TokenIdentifier _ $$ }
-  ';'                                   { TokenSep _ }
+  builtin                               { TokenBuiltin _ $$ }
 
 %nonassoc '>' '<' '<=' '>=' '==' '!=' '!'
 %left '||'
@@ -55,48 +59,66 @@ import Text.Printf
 %left '='
 
 %%
-Main : fn id '(' ')' Block { Func $2 $5 }
+Rust : FuncDecl Rust                               { $1 : $2 }
+     | {- empty -}                                 { [] }
 
-Statement : Exp ';'                     { Expression $1 }
-          | let id '=' Exp ';'          { Attr $2 $4 }
-          | If                          { $1 }
-          | While                       { $1 }
+Statement : Exp ';'                                { Expression $1 }
+          | let id '=' Exp ';'                     { Attr $2 $4 }
+          | If                                     { $1 }
+          | While                                  { $1 }
 
-Statements : Statement Statements       { $1 : $2 }
-           | {- empty -}                { [] }
+Statements : Statement Statements                  { $1 : $2 }
+           | {- empty -}                           { [] }
 
-Block : '{' Statements '}'              { $2 }
+Block : '{' Statements '}'                         { $2 }
 
-If : if Exp Block                       { IfStmt $2 $3 [] }
-   | if Exp Block else Block            { IfStmt $2 $3 $5 }
-   | if Exp Block else If               { IfStmt $2 $3 [$5] }
+-- Type : int                                         { VTInt }
+--      | bool                                        { VTBool }
 
-While : while Exp Block                 { WhileStmt $2 $3 }
+-- VarDecl : id ':' Type                              { FOOO }
+--         | id                                       { FOO }
+
+-- FuncDeclArgs :  ','
+
+FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
+
+FuncArgs1Plus : Exp ',' FuncArgs1Plus              { $1 : $3 }
+              | Exp                                { [$1] }
+FuncArgs : {- empty -}                             { [] }
+         | FuncArgs1Plus                           { $1 }
+
+FuncCall : builtin '(' FuncArgs ')' ';'            { FuncCall $1 $3 }
+
+If : if Exp Block                                  { IfStmt $2 $3 [] }
+   | if Exp Block else Block                       { IfStmt $2 $3 $5 }
+   | if Exp Block else If                          { IfStmt $2 $3 [$5] }
+
+While : while Exp Block                            { WhileStmt $2 $3 }
 
 Exp
     -- Value Expressions
-    : int                               { LitExp (VTInt $1) }
-    | bool                              { LitExp (VTBool $1) }
-    | id                                { Var $1 }
+    : int                                          { LitExp (VTInt $1) }
+    | bool                                         { LitExp (VTBool $1) }
+    | id                                           { Var $1 }
     -- Arithmetic Operators
-    | Exp '+' Exp                       { BinaryOp $1 "+" $3 }
-    | Exp '-' Exp                       { BinaryOp $1 "-" $3 }
-    | Exp '*' Exp                       { BinaryOp $1 "*" $3 }
-    | Exp '/' Exp                       { BinaryOp $1 "/" $3 }
-    | Exp '%' Exp                       { BinaryOp $1 "%" $3 }
-    | '-' Exp                           { UnaryOp "-" $2 }
+    | Exp '+' Exp                                  { BinaryOp $1 "+" $3 }
+    | Exp '-' Exp                                  { BinaryOp $1 "-" $3 }
+    | Exp '*' Exp                                  { BinaryOp $1 "*" $3 }
+    | Exp '/' Exp                                  { BinaryOp $1 "/" $3 }
+    | Exp '%' Exp                                  { BinaryOp $1 "%" $3 }
+    | '-' Exp                                      { UnaryOp "-" $2 }
     -- Boolean Operators
-    | Exp '||' Exp                      { BinaryOp $1 "||" $3 }
-    | Exp '&&' Exp                      { BinaryOp $1 "&&" $3 }
-    | Exp '==' Exp                      { BinaryOp $1 "==" $3 }
-    | Exp '!=' Exp                      { BinaryOp $1 "!=" $3 }
-    | Exp '<' Exp                       { BinaryOp $1 "<" $3 }
-    | Exp '>' Exp                       { BinaryOp $1 ">" $3 }
-    | Exp '<=' Exp                      { BinaryOp $1 "<=" $3 }
-    | Exp '>=' Exp                      { BinaryOp $1 ">=" $3 }
-    | '!' Exp                           { UnaryOp "!" $2 }
+    | Exp '||' Exp                                 { BinaryOp $1 "||" $3 }
+    | Exp '&&' Exp                                 { BinaryOp $1 "&&" $3 }
+    | Exp '==' Exp                                 { BinaryOp $1 "==" $3 }
+    | Exp '!=' Exp                                 { BinaryOp $1 "!=" $3 }
+    | Exp '<' Exp                                  { BinaryOp $1 "<" $3 }
+    | Exp '>' Exp                                  { BinaryOp $1 ">" $3 }
+    | Exp '<=' Exp                                 { BinaryOp $1 "<=" $3 }
+    | Exp '>=' Exp                                 { BinaryOp $1 ">=" $3 }
+    | '!' Exp                                      { UnaryOp "!" $2 }
     -- Misc
-    | '(' Exp ')'                       { $2 }
+    | '(' Exp ')'                                  { $2 }
 {
 
 data Exp = LitExp ValueType
@@ -109,9 +131,10 @@ data Statement = Expression Exp
                | Attr String Exp
                | IfStmt Exp [Statement] [Statement]
                | WhileStmt Exp [Statement]
+               | FuncCall String [Exp]
                deriving Show
 
-data Tree = Func String [Statement]
+data Tree = FuncDecl String [Statement]
           | Statements [Statement]
           deriving Show
 
