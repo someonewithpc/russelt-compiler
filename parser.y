@@ -10,8 +10,11 @@ import Data.List
 %error { parseError }
 
 %token
+  -- Literals and types
   int                                   { TokenInt _ $$ }
   bool                                  { TokenBool _ $$ }
+  tint                                  { TokenTInt _ $$ }
+  tbool                                 { TokenTBool _ $$ }
   -- Symbols
   ';'                                   { TokenSemi _ }
   ':'                                   { TokenColon _ }
@@ -66,7 +69,8 @@ Rust : FuncDecl Rust                               { $1 : $2 }
      | {- empty -}                                 { [] }
 
 Statement : ExpSemi                                { Expression $1 }
-          | let id '=' ExpSemi                     { Attr $2 $4 }
+          | let id '=' ExpSemi                     { VarDecl $2 $4 "auto" }
+          | let id ':' Type '=' ExpSemi            { VarDecl $2 $6 $4 }
           | While                                  { $1 }
           | Println ';'                            { $1 }
           | Readline ';'                           { $1 }
@@ -75,6 +79,9 @@ Statements : Statement Statements                  { $1 : $2 }
            | {- empty -}                           { [] }
 
 Block : '{' Statements '}'                         { $2 }
+
+Type : tint                                        { $1 }
+     | tbool                                       { $1 }
 
 FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
 
@@ -93,8 +100,8 @@ ExpSemi : Exp ';'                                  { $1 }
 
 Exp
     -- Value Expressions
-    : int                                          { LitExp (VTInt $1) }
-    | bool                                         { LitExp (VTBool $1) }
+    : int                                          { LitExp (TInt $1) }
+    | bool                                         { LitExp (TBool $1) }
     | id                                           { Var $1 }
     -- Arithmetic Operators
     | Exp '+' Exp                                  { BinaryOp $1 "+" $3 }
@@ -121,14 +128,14 @@ Exp
 --               | Readline
 --               | Function String [Exp]
 
-data Exp = LitExp ValueType
+data Exp = LitExp Type
          | Var String
          | BinaryOp Exp String Exp
          | UnaryOp String Exp
          | IfStmt Exp [Statement] [Statement]
 
 data Statement = Expression Exp
-               | Attr String Exp
+               | VarDecl String Exp String
                | WhileStmt Exp [Statement]
                | Println Exp
                | Readline
@@ -151,7 +158,8 @@ instance Print Tree where
 
 instance Print Statement where
   print_tree lvl (Expression exp)           = print_tree lvl exp
-  print_tree lvl (Attr string exp)          = "set " ++ show string ++ " to " ++ print_tree lvl exp
+  print_tree lvl (VarDecl string exp typ)   = "set " ++ wrapped' (show string ++ ": " ++ typ) ++ " to "
+                                              ++ print_tree lvl exp
   print_tree lvl (WhileStmt exp stmt)       = "while cond:" ++ print_tree lvl exp ++
                                               "\n" ++ (padded_print lvl stmt)
   print_tree lvl (Println exp)              = "call println " ++ (print_tree lvl exp)
@@ -166,9 +174,9 @@ instance Print Exp where
   print_tree lvl (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt1) ++
                                               " else: " ++ (padded_print lvl stmt2)
 
-instance Print ValueType where
-  print_tree lvl (VTInt i)                  = wrapped' $ "int: " ++ show i
-  print_tree lvl (VTBool b)                 = wrapped' $ "bool: " ++ show b
+instance Print Type where
+  print_tree lvl (TInt i)                  = wrapped' $ show i ++ ": i32"
+  print_tree lvl (TBool b)                 = wrapped' $ show b ++ ": bool"
   print_tree _ _                            = "UNDEFINED"
 
 printTree = padded_print 1

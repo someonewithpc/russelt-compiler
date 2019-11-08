@@ -8,9 +8,9 @@ $digit = [0-9]
 $alpha = [a-zA-Z]
 
 tokens :-
+    [\ \t\f\v\r\n]+			;
     -- Functions
     fn                                  { \p _ -> TokenFn p }
-    [\ \t\f\v\r\n]+			;
     -- Attributions
     \=                                  { \p _ -> TokenAtr p }
     -- Expressions
@@ -28,6 +28,8 @@ tokens :-
     true                                { \p _ -> TokenBool p True }
     false                               { \p _ -> TokenBool p False }
     let                                 { \p _ -> TokenLet p }
+    bool                                { \p s -> TokenTBool p s }
+    (i|u)(8|16|32|64|128|size)          { \p s -> TokenTInt p s }
     -- Control flow
     if                                  { \p _ -> TokenIf p }
     else                                { \p _ -> TokenElse p }
@@ -37,82 +39,74 @@ tokens :-
     [$alpha \_] [$alpha $digit \_]*     { \p s -> TokenIdentifier p s }
 
 {
-data ValueType = VTInt Int
-               | VTBool Bool
-               | VTAuto String
-               deriving Show
+data Type = TInt Int
+          | TBool Bool
+          | TAuto String
+          deriving Show
 data Token =
            -- Types and Variables
-           TokenInt AlexPosn Int
-           | TokenBool AlexPosn Bool
+           TokenInt AlexPosn Int                -- int value
+           | TokenBool AlexPosn Bool            -- bool value
+           | TokenTBool AlexPosn String         -- bool type
+           | TokenTInt AlexPosn String          -- int type
            -- Attributions
-           | TokenLet AlexPosn -- let
-           | TokenAtr AlexPosn -- =
+           | TokenLet AlexPosn                  -- let
+           | TokenAtr AlexPosn                  -- =
            -- Expressions
            | TokenOp AlexPosn String
            -- Miscelaneous
            | TokenIdentifier AlexPosn String
-           | TokenLC AlexPosn -- {
-           | TokenRC AlexPosn -- }
-           | TokenLB AlexPosn -- (
-           | TokenRB AlexPosn -- )
-           | TokenSemi AlexPosn -- ;
-           | TokenColon AlexPosn -- :
-           | TokenComma AlexPosn -- ,
+           | TokenLC AlexPosn                   -- {
+           | TokenRC AlexPosn                   -- }
+           | TokenLB AlexPosn                   -- (
+           | TokenRB AlexPosn                   -- )
+           | TokenSemi AlexPosn                 -- ;
+           | TokenColon AlexPosn                -- :
+           | TokenComma AlexPosn                -- ,
            -- Functions
-           | TokenFn AlexPosn -- fn
-           | TokenReadline AlexPosn -- read_line
-           | TokenPrintln AlexPosn -- println
-           | TokenMain AlexPosn -- main
-           | TokenReturn AlexPosn -- return
+           | TokenFn AlexPosn                   -- fn
+           | TokenReadline AlexPosn             -- read_line
+           | TokenPrintln AlexPosn              -- println
+           | TokenMain AlexPosn                 -- main
+           | TokenReturn AlexPosn               -- return
            -- Control flow
-           | TokenIf AlexPosn -- if
-           | TokenElse AlexPosn -- else
-           | TokenWhile AlexPosn -- while
+           | TokenIf AlexPosn                   -- if
+           | TokenElse AlexPosn                 -- else
+           | TokenWhile AlexPosn                -- while
            deriving (Show)
 
-token_pos (TokenFn p) = p
+---- Extract the position of the token (AlexPosn)
+-- Sadness. There must be a better way
+-- token_pos :: Token a => a -> AlexPosn
+-- token_pos (_ p) = p
+-- token_pos (_ p _) = p
+
+-- Command to generate the section bellow:
+-- sed -r -e 's/ *--.*//g' -e 's/.*((Token.*) AlexPosn( \w+)?).*/token_pos (\2 p\3) = p/g' -e 's/(.* p) \w+/\1 _/g' -e '/^$/d'
+
+token_pos (TokenInt p _) = p
+token_pos (TokenBool p _) = p
+token_pos (TokenTBool p _) = p
+token_pos (TokenTInt p _) = p
+token_pos (TokenLet p) = p
 token_pos (TokenAtr p) = p
 token_pos (TokenOp p _) = p
-token_pos (TokenLB p) = p
-token_pos (TokenRB p) = p
+token_pos (TokenIdentifier p _) = p
 token_pos (TokenLC p) = p
 token_pos (TokenRC p) = p
+token_pos (TokenLB p) = p
+token_pos (TokenRB p) = p
 token_pos (TokenSemi p) = p
 token_pos (TokenColon p) = p
 token_pos (TokenComma p) = p
-token_pos (TokenInt p _) = p
-token_pos (TokenBool p _) = p
-token_pos (TokenLet p) = p
+token_pos (TokenFn p) = p
+token_pos (TokenReadline p) = p
+token_pos (TokenPrintln p) = p
+token_pos (TokenMain p) = p
+token_pos (TokenReturn p) = p
 token_pos (TokenIf p) = p
 token_pos (TokenElse p) = p
 token_pos (TokenWhile p) = p
-token_pos (TokenReadline p) = p
-token_pos (TokenPrintln p) = p
-token_pos (TokenIdentifier p _) = p
-
--- -- Extract the position of the token (AlexPosn)
--- token_pos (TokenInt p _) = p
--- token_pos (TokenBool p _) = p
--- token_pos (TokenLet p) = p
---             -- Expressions
--- token_pos (TokenOp p _) = p
--- token_pos (TokenLB p) = p
--- token_pos (TokenRB p) = p
--- token_pos (TokenLC p) = p
--- token_pos (TokenRC p) = p
---             -- Attributions
--- --token_pos (TokenAtr p) = p
---             -- Ifs
--- token_pos (TokenIf p) = p
--- --token_pos (TokenElseIf p) = p
--- token_pos (TokenElse p) = p
---             -- While
--- token_pos (TokenWhile p) = p
---             -- Functions
--- token_pos (TokenFn p) = p
---             -- Miscelaneous
--- token_pos (TokenSemi p) = p
 
 getLineNum :: AlexPosn -> Int
 getLineNum (AlexPn _ lineNum _) = lineNum
