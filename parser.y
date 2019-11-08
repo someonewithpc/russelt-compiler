@@ -77,6 +77,7 @@ Statement : ExpSemi                                { Expression $1 }
 
 Statements : Statement Statements                  { $1 : $2 }
            | {- empty -}                           { [] }
+           | ';' Statements                        { [] }
 
 Block : '{' Statements '}'                         { $2 }
 
