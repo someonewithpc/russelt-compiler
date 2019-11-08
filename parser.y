@@ -18,7 +18,7 @@ import Data.List
   -- Symbols
   ';'                                   { TokenSemi _ }
   ':'                                   { TokenColon _ }
-  ','                                   { TokenComma _ }
+--  ','                                   { TokenComma _ }
   '('                                   { TokenLB _ }
   ')'                                   { TokenRB _ }
   '{'                                   { TokenLC _ }
@@ -77,7 +77,7 @@ Statement : ExpSemi                                { Expression $1 }
 
 Statements : Statement Statements                  { $1 : $2 }
            | {- empty -}                           { [] }
-           | ';' Statements                        { [] }
+           | ';' Statements                        { $2 }
 
 Block : '{' Statements '}'                         { $2 }
 
@@ -97,7 +97,6 @@ While : while Exp Block                            { WhileStmt $2 $3 }
 
 ExpSemi : Exp ';'                                  { $1 }
         | If                                       { $1 }
-        | If ';'                                   { $1 }
 
 Exp
     -- Value Expressions
