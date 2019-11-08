@@ -1,12 +1,11 @@
 fn main () {
   if 3 > 2 {
-     let diogo = 42;
+    let foo = 42;
   } else if false {
-     println(1337);
+    println(1337);
   }
   if true {
     read_line();
-  } else {
-    let diogo = false;
+    let bar = false;
   }
 }
