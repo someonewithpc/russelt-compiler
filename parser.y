@@ -65,9 +65,8 @@ import Data.List
 Rust : FuncDecl Rust                               { $1 : $2 }
      | {- empty -}                                 { [] }
 
-Statement : Exp ';'                                { Expression $1 }
-          | let id '=' Exp ';'                     { Attr $2 $4 }
-          | If                                     { $1 }
+Statement : ExpSemi                                { Expression $1 }
+          | let id '=' ExpSemi                     { Attr $2 $4 }
           | While                                  { $1 }
           | Println ';'                            { $1 }
           | Readline ';'                           { $1 }
@@ -84,9 +83,13 @@ Readline : read_line '(' ')'                       { Readline }
 
 If : if Exp Block                                  { IfStmt $2 $3 [] }
    | if Exp Block else Block                       { IfStmt $2 $3 $5 }
-   | if Exp Block else If                          { IfStmt $2 $3 [$5] }
+   | if Exp Block else If                          { IfStmt $2 $3 [Expression $5] }
 
 While : while Exp Block                            { WhileStmt $2 $3 }
+
+ExpSemi : Exp ';'                                  { $1 }
+        | If                                       { $1 }
+        | If ';'                                   { $1 }
 
 Exp
     -- Value Expressions
@@ -122,10 +125,10 @@ data Exp = LitExp ValueType
          | Var String
          | BinaryOp Exp String Exp
          | UnaryOp String Exp
+         | IfStmt Exp [Statement] [Statement]
 
 data Statement = Expression Exp
                | Attr String Exp
-               | IfStmt Exp [Statement] [Statement]
                | WhileStmt Exp [Statement]
                | Println Exp
                | Readline
@@ -149,9 +152,6 @@ instance Print Tree where
 instance Print Statement where
   print_tree lvl (Expression exp)           = print_tree lvl exp
   print_tree lvl (Attr string exp)          = "set " ++ show string ++ " to " ++ print_tree lvl exp
-  print_tree lvl (IfStmt exp stmt [])       = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt)
-  print_tree lvl (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt1) ++
-                                              " else: " ++ (padded_print lvl stmt2)
   print_tree lvl (WhileStmt exp stmt)       = "while cond:" ++ print_tree lvl exp ++
                                               "\n" ++ (padded_print lvl stmt)
   print_tree lvl (Println exp)              = "call println " ++ (print_tree lvl exp)
@@ -162,6 +162,9 @@ instance Print Exp where
   print_tree lvl (Var str)                  = str
   print_tree lvl (BinaryOp exp1 str exp2)   = (print_tree lvl exp1) ++ " " ++ str ++ " " ++ (print_tree lvl exp2)
   print_tree lvl (UnaryOp str exp)          = str ++ (print_tree lvl exp)
+  print_tree lvl (IfStmt exp stmt [])       = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt)
+  print_tree lvl (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt1) ++
+                                              " else: " ++ (padded_print lvl stmt2)
 
 instance Print ValueType where
   print_tree lvl (VTInt i)                  = wrapped' $ "int: " ++ show i
