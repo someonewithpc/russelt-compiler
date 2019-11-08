@@ -2,8 +2,10 @@ fn main () {
   if 3 > 2 {
      let diogo = 42;
   } else if false {
+     println(1337);
   }
   if true {
+    readline();
   } else {
     let diogo = false;
   }
