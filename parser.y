@@ -133,14 +133,27 @@ data Statement = Expression Exp
                | IfStmt Exp [Statement] [Statement]
                | WhileStmt Exp [Statement]
                | FuncCall String [Exp]
-               deriving Show
+
+instance Show Statement where
+  show (Expression exp) = show exp ++ "\n"
+  show (Attr string exp) = "Atributtion to " ++ string ++ " of " ++ show exp ++ "\n"
+  show (IfStmt exp stmt1 stmt2) = "If statement with condition: " ++ show exp ++
+                                  " and the following statements: \n" ++
+                                  (intercalate "\n" (map show stmt1)) ++ "\n" ++
+                                  "else contents: \n" ++
+                                  (intercalate "\n" (map show stmt2)) ++ "\n"
+  show (WhileStmt exp stmt) = "While statement with condition:" ++ show exp ++
+                              " and the following statements: \n" ++
+                              (intercalate "\n" (map show stmt)) ++ "\n"
+  show (FuncCall func_name exp) = "Invoked the function: " ++ func_name ++ "\n" ++
+                                  " with the following arguments: " ++ (intercalate "\n" (map show exp)) ++ "\n"
 
 data Tree = FuncDecl String [Statement]
           | Statements [Statement]
 
 instance Show Tree where
-  show (FuncDecl name statements) = "\n" ++ name ++ "\n" ++ (intercalate "\n" (map show statements))
-  show (Statements statements) = "\n" ++ intercalate "\n" (map show statements)
+  show (FuncDecl name statements) = "Function " ++ name ++ ":\n" ++ (intercalate "\n" (map show statements))
+  show (Statements statements) = intercalate "\n" (map show statements)
 
 parseError :: [Token] -> a
 parseError (token:tokenList) = let pos = token_pos(token) in
