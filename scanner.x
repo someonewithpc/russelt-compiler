@@ -21,7 +21,7 @@ tokens :-
     \{					{ \p _ -> TokenLC p }
     \}					{ \p _ -> TokenRC p }
     \;					{ \p _ -> TokenSemi p }
-    \,                                  { \p _ -> TokenComma p }
+--    \,                                  { \p _ -> TokenComma p }
     \:                                  { \p _ -> TokenColon p }
     -- Types and Variables
     \-?$digit+				{ \p s -> TokenInt p (read s :: Int) }
@@ -62,7 +62,7 @@ data Token =
            | TokenRB AlexPosn                   -- )
            | TokenSemi AlexPosn                 -- ;
            | TokenColon AlexPosn                -- :
-           | TokenComma AlexPosn                -- ,
+--           | TokenComma AlexPosn                -- ,
            -- Functions
            | TokenFn AlexPosn                   -- fn
            | TokenReadline AlexPosn             -- read_line
@@ -98,7 +98,7 @@ token_pos (TokenLB p) = p
 token_pos (TokenRB p) = p
 token_pos (TokenSemi p) = p
 token_pos (TokenColon p) = p
-token_pos (TokenComma p) = p
+--token_pos (TokenComma p) = p
 token_pos (TokenFn p) = p
 token_pos (TokenReadline p) = p
 token_pos (TokenPrintln p) = p
