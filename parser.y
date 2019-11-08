@@ -77,14 +77,8 @@ Block : '{' Statements '}'                         { $2 }
 
 FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
 
-FuncArgs1 : {- empty -}                            { [] }
-          | Exp                                    { [$1] }
-
-FuncArgs : {- empty -}                             { [] }
-         | FuncArgs1 FuncArgs                      { $1 : $2 }
-
-BuiltinCall : println '(' FuncArgs ')' ';'         { BuiltinCall "println" $3 }
-            | read_line '(' ')' ';'                { BuiltinCall "read_line" [] }
+Println : println '(' Exp ')' ';'                  { $1 : $3 }
+Readline : read_line '(' ')' ';'                   { $1 }
 
 If : if Exp Block                                  { IfStmt $2 $3 [] }
    | if Exp Block else Block                       { IfStmt $2 $3 $5 }
@@ -128,7 +122,8 @@ data Statement = Expression Exp
                | Attr String Exp
                | IfStmt Exp [Statement] [Statement]
                | WhileStmt Exp [Statement]
-               | BuiltinCall String [Exp]
+               | Println Exp
+               | Readline
 
 instance Show Statement where
   show (Expression exp) = show exp ++ "\n"
@@ -141,9 +136,10 @@ instance Show Statement where
   show (WhileStmt exp stmt) = "While statement with condition:" ++ show exp ++
                               " and the following statements: \n" ++
                               (intercalate "\n" (map show stmt)) ++ "\n"
-  show (BuiltinCall func_name exp) = "Invoked the function: " ++ func_name ++ "\n" ++
-                                     " with the following arguments: " ++
-                                     (intercalate "\n" (map show exp)) ++ "\n"
+  show (Println exp) = "Invoked println \n" ++
+                                     " with the following argument: " ++
+                                     (show exp) ++ "\n"
+  show (Readline) = "Invoked read_line \n"
 
 data Tree = FuncDecl String [Statement]
           | Statements [Statement]
@@ -164,6 +160,6 @@ main = do
         let token_list = scan_tokens raw_input
         let parse_tree = parse token_list
 
---        putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
+        putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
         putStrLn ("Parse Tree:\n" ++ (show parse_tree) ++ "\n")
 }
