@@ -49,8 +49,8 @@ import Data.List
   while                                 { TokenWhile _ }
     -- Miscelaneous
   id                                    { TokenIdentifier _ $$ }
-    -- Languages constructors
-  println                               { TokenPrintln _ $$ }
+    -- Languages constructs
+  println                               { TokenPrintln _ }
   read_line                             { TokenReadline _ }
 
 %nonassoc '>' '<' '<=' '>=' '==' '!=' '!'
@@ -69,6 +69,8 @@ Statement : Exp ';'                                { Expression $1 }
           | let id '=' Exp ';'                     { Attr $2 $4 }
           | If                                     { $1 }
           | While                                  { $1 }
+          | Println ';'                            { $1 }
+          | Readline ';'                           { $1 }
 
 Statements : Statement Statements                  { $1 : $2 }
            | {- empty -}                           { [] }
@@ -77,8 +79,8 @@ Block : '{' Statements '}'                         { $2 }
 
 FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
 
-Println : println '(' Exp ')' ';'                  { $1 : $3 }
-Readline : read_line '(' ')' ';'                   { $1 }
+Println : println '(' Exp ')'                      { Println $3 }
+Readline : read_line '(' ')'                       { Readline }
 
 If : if Exp Block                                  { IfStmt $2 $3 [] }
    | if Exp Block else Block                       { IfStmt $2 $3 $5 }
@@ -112,10 +114,15 @@ Exp
     | '(' Exp ')'                                  { $2 }
 {
 
+-- data FuncCall = Println Exp
+--               | Readline
+--               | Function String [Exp]
+
 data Exp = LitExp ValueType
          | Var String
          | BinaryOp Exp String Exp
          | UnaryOp String Exp
+--         | FuncCall
          deriving Show
 
 data Statement = Expression Exp

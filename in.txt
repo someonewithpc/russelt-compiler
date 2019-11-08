@@ -5,7 +5,7 @@ fn main () {
      println(1337);
   }
   if true {
-    readline();
+    read_line();
   } else {
     let diogo = false;
   }
