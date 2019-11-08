@@ -33,7 +33,7 @@ tokens :-
     else                                { \p _ -> TokenElse p }
     while                               { \p _ -> TokenWhile p }
     read_line                           { \p _ -> TokenReadline p }
-    println                             { \p s -> TokenPrintln p s}
+    println                             { \p _ -> TokenPrintln p }
     $alpha [$alpha $digit \_ !]*        { \p s -> TokenIdentifier p s }
 
 {
@@ -52,8 +52,6 @@ data Token =
            | TokenOp AlexPosn String
            -- Miscelaneous
            | TokenIdentifier AlexPosn String
-           | TokenReadline AlexPosn -- read_line
-           | TokenPrintln AlexPosn String -- println
            | TokenLC AlexPosn -- {
            | TokenRC AlexPosn -- }
            | TokenLB AlexPosn -- (
@@ -61,7 +59,10 @@ data Token =
            | TokenSemi AlexPosn -- ;
            | TokenColon AlexPosn -- :
            | TokenComma AlexPosn -- ,
+           -- Functions
            | TokenFn AlexPosn -- fn
+           | TokenReadline AlexPosn -- read_line
+           | TokenPrintln AlexPosn -- println
            | TokenMain AlexPosn -- main
            | TokenReturn AlexPosn -- return
            -- Control flow
@@ -87,7 +88,7 @@ token_pos (TokenIf p) = p
 token_pos (TokenElse p) = p
 token_pos (TokenWhile p) = p
 token_pos (TokenReadline p) = p
-token_pos (TokenPrintln p _) = p
+token_pos (TokenPrintln p) = p
 token_pos (TokenIdentifier p _) = p
 
 -- -- Extract the position of the token (AlexPosn)
