@@ -32,8 +32,8 @@ tokens :-
     if                                  { \p _ -> TokenIf p }
     else                                { \p _ -> TokenElse p }
     while                               { \p _ -> TokenWhile p }
-    read_line                           { \p s -> TokenBuiltin p s }
-    println                             { \p s -> TokenBuiltin p s }
+    read_line                           { \p _ -> TokenReadline p }
+    println                             { \p s -> TokenPrintln p s}
     $alpha [$alpha $digit \_ !]*        { \p s -> TokenIdentifier p s }
 
 {
@@ -52,7 +52,8 @@ data Token =
            | TokenOp AlexPosn String
            -- Miscelaneous
            | TokenIdentifier AlexPosn String
-           | TokenBuiltin AlexPosn String -- read_line, println
+           | TokenReadline AlexPosn -- read_line
+           | TokenPrintln AlexPosn String -- println
            | TokenLC AlexPosn -- {
            | TokenRC AlexPosn -- }
            | TokenLB AlexPosn -- (
@@ -85,7 +86,8 @@ token_pos (TokenLet p) = p
 token_pos (TokenIf p) = p
 token_pos (TokenElse p) = p
 token_pos (TokenWhile p) = p
-token_pos (TokenBuiltin p _) = p
+token_pos (TokenReadline p) = p
+token_pos (TokenPrintln p _) = p
 token_pos (TokenIdentifier p _) = p
 
 -- -- Extract the position of the token (AlexPosn)
