@@ -5,3 +5,4 @@ scanner.hi
 scanner.o
 parser.hi
 parser.o
+parser.info
