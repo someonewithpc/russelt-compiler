@@ -49,7 +49,9 @@ import Data.List
   while                                 { TokenWhile _ }
     -- Miscelaneous
   id                                    { TokenIdentifier _ $$ }
-  builtin                               { TokenBuiltin _ $$ }
+    -- Languages constructors
+  println                               { TokenPrintln _ $$ }
+  read_line                             { TokenReadline _ }
 
 %nonassoc '>' '<' '<=' '>=' '==' '!=' '!'
 %left '||'
@@ -73,22 +75,16 @@ Statements : Statement Statements                  { $1 : $2 }
 
 Block : '{' Statements '}'                         { $2 }
 
--- Type : int                                         { VTInt }
---      | bool                                        { VTBool }
-
--- VarDecl : id ':' Type                              { FOOO }
---         | id                                       { FOO }
-
--- FuncDeclArgs :  ','
-
 FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
 
-FuncArgs1Plus : Exp ',' FuncArgs1Plus              { $1 : $3 }
-              | Exp                                { [$1] }
-FuncArgs : {- empty -}                             { [] }
-         | FuncArgs1Plus                           { $1 }
+FuncArgs1 : {- empty -}                            { [] }
+          | Exp                                    { [$1] }
 
-FuncCall : builtin '(' FuncArgs ')' ';'            { FuncCall $1 $3 }
+FuncArgs : {- empty -}                             { [] }
+         | FuncArgs1 FuncArgs                      { $1 : $2 }
+
+BuiltinCall : println '(' FuncArgs ')' ';'         { BuiltinCall "println" $3 }
+            | read_line '(' ')' ';'                { BuiltinCall "read_line" [] }
 
 If : if Exp Block                                  { IfStmt $2 $3 [] }
    | if Exp Block else Block                       { IfStmt $2 $3 $5 }
@@ -132,7 +128,7 @@ data Statement = Expression Exp
                | Attr String Exp
                | IfStmt Exp [Statement] [Statement]
                | WhileStmt Exp [Statement]
-               | FuncCall String [Exp]
+               | BuiltinCall String [Exp]
 
 instance Show Statement where
   show (Expression exp) = show exp ++ "\n"
@@ -145,8 +141,9 @@ instance Show Statement where
   show (WhileStmt exp stmt) = "While statement with condition:" ++ show exp ++
                               " and the following statements: \n" ++
                               (intercalate "\n" (map show stmt)) ++ "\n"
-  show (FuncCall func_name exp) = "Invoked the function: " ++ func_name ++ "\n" ++
-                                  " with the following arguments: " ++ (intercalate "\n" (map show exp)) ++ "\n"
+  show (BuiltinCall func_name exp) = "Invoked the function: " ++ func_name ++ "\n" ++
+                                     " with the following arguments: " ++
+                                     (intercalate "\n" (map show exp)) ++ "\n"
 
 data Tree = FuncDecl String [Statement]
           | Statements [Statement]

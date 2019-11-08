@@ -1,10 +1,10 @@
 fn main () {
   if 3 > 2 {
-     let x = 3;
+     let diogo = 42;
   } else if false {
-
   }
   if true {
   } else {
+    let diogo = false;
   }
 }
