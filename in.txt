@@ -1,11 +1,24 @@
 fn main () {
-  if 3 > 2 {
-    let foo = 42;
-  } else if false {
-    println(1337);
+  let x = -1337;
+  if x == 5 {
+      let _foo = 5;
   }
-  if true {
-    read_line();
-    let bar = false;
+  else if x == 6 {
+      let _foo = 6;
   }
+  else {
+      let _foo = 0;
+  }
+}
+fn _cenas () {
+  let x = -1337;
+  let _foo = if x == 5 {
+                  42;
+            }
+            else if x == 6 {
+                 1337;
+            }
+            else {
+                31337;
+            };
 }

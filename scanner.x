@@ -34,7 +34,7 @@ tokens :-
     while                               { \p _ -> TokenWhile p }
     read_line                           { \p _ -> TokenReadline p }
     println                             { \p _ -> TokenPrintln p }
-    $alpha [$alpha $digit \_ !]*        { \p s -> TokenIdentifier p s }
+    [$alpha \_] [$alpha $digit \_]*     { \p s -> TokenIdentifier p s }
 
 {
 data ValueType = VTInt Int
