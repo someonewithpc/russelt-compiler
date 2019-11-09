@@ -1,5 +1,5 @@
 fn main () {
-  let x = -1337;
+  let x = read_line();
   if x == 5 {
       let _foo: i32 = 5;
   }
