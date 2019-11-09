@@ -13,7 +13,7 @@ and Spacewar!.
 ## Usage
 
 1. Run `make` to compile the program
-2. ` ./parser < some_input_file.txt`
+2. ` ./parser < some_input_file.rs`
 3. Run `make clean` to cleanup when you’re done
 
 ## Supported Syntax
@@ -57,7 +57,7 @@ and Spacewar!.
                         1337;
                     }
                     else if y == false {
-                        true;
+                        31337;
                     }
                     else {
                       42;
@@ -65,8 +65,7 @@ and Spacewar!.
         }
 
 
-Here’s a bit of crazy code that Russel! can handle pretty well
-:)
+Here’s a bit of crazy code that Russel! can handle pretty well :)
 
 
     fn main ()
@@ -75,7 +74,7 @@ Here’s a bit of crazy code that Russel! can handle pretty well
       if x == 5 {
           let _foo: i32 = 5;
       }
-      else if x == 6
+      else if (x == 6)
       {
           let _foo: u128 = 6;
       }
@@ -83,9 +82,24 @@ Here’s a bit of crazy code that Russel! can handle pretty well
           let _foo = 0;
       }
     }
-    fn _cenas () {
+    fn _spaceship () {
       let x: u64 = 1337;
-      ;;;;;;;;;
+           ;             ;
+           ;;             ;;
+          ;;               ;;
+         ;;;     ;;;;;     ;;;
+        ;;;   ;;;     ;;;   ;;;
+       ;;;   ;   ;;;;;   ;   ;;;
+      ; ;   ;  ;;;   ;;;  ;   ; ;
+      ; ;;;;   ; ;;;;; ;   ;;;; ;
+      ; ;;;;   ; ;;;;; ;   ;;;; ;
+      ; ;   ;   ;;   ;;   ;   ; ;
+       ;;;   ;   ;;;;;   ;   ;;;
+        ;;;   ;;;     ;;;   ;;;
+         ;;;     ;;;;;     ;;;
+          ;;               ;;
+           ;;             ;;
+            ;             ;
       let _foo = if x == 5 {
                       42;
                 }
