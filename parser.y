@@ -73,7 +73,7 @@ Statement : ExpSemi                                { Expression $1 }
           | let id ':' Type '=' ExpSemi            { VarDecl $2 $6 $4 }
           | While                                  { $1 }
           | Println ';'                            { $1 }
-          | Readline ';'                           { $1 }
+
 
 Statements : Statement Statements                  { $1 : $2 }
            | {- empty -}                           { [] }
@@ -122,6 +122,7 @@ Exp
     | '!' Exp                                      { UnaryOp "!" $2 }
     -- Misc
     | '(' Exp ')'                                  { $2 }
+    | Readline                                     { $1 }
 {
 
 -- data FuncCall = Println Exp
@@ -133,12 +134,12 @@ data Exp = LitExp Type
          | BinaryOp Exp String Exp
          | UnaryOp String Exp
          | IfStmt Exp [Statement] [Statement]
+         | Readline
 
 data Statement = Expression Exp
                | VarDecl String Exp String
                | WhileStmt Exp [Statement]
                | Println Exp
-               | Readline
 
 data Tree = FuncDecl String [Statement]
           | Statements [Statement]
@@ -163,7 +164,6 @@ instance Print Statement where
   print_tree lvl (WhileStmt exp stmt)       = "while cond:" ++ print_tree lvl exp ++
                                               "\n" ++ (padded_print lvl stmt)
   print_tree lvl (Println exp)              = "call println " ++ (print_tree lvl exp)
-  print_tree lvl (Readline)                 = "call read_line"
 
 instance Print Exp where
   print_tree lvl (LitExp vt)                = print_tree lvl vt
@@ -173,6 +173,7 @@ instance Print Exp where
   print_tree lvl (IfStmt exp stmt [])       = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt)
   print_tree lvl (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt1) ++
                                               " else: " ++ (padded_print lvl stmt2)
+  print_tree lvl (Readline)                 = "call read_line"
 
 instance Print Type where
   print_tree lvl (TInt i)                  = wrapped' $ show i ++ ": i32"

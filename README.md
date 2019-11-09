@@ -35,7 +35,7 @@ and Spacewar!.
           let i = 0;
           while (i <= 1337)
           {
-            if (i % 2) {
+            if (i % 2 == 0) {
               println(1337);
             } else if (i == 42) {
               println(42);
@@ -45,13 +45,15 @@ and Spacewar!.
           }
         }
 
-- Let attributions of Integers (of size 8, 16, 32, 64, 128) and Booleans
+- Let attributions of Integers (of size 8, 16, 32, 64, 128) and Booleans as well
+    as variables
 
 
         fn main () {
           let x = -1337;
           let y: u64 = 42;
           let z = true;
+          let a = z;
 
           let xyz = if x == 42 {
                         1337;
