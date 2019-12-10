@@ -35,7 +35,7 @@ tokens :-
     else                                { \p _ -> TokenElse p }
     while                               { \p _ -> TokenWhile p }
     read_line                           { \p _ -> TokenReadline p }
-    println                             { \p _ -> TokenPrintln p }
+    println\!                           { \p _ -> TokenPrintln p }
     [$alpha \_] [$alpha $digit \_]*     { \p s -> TokenIdentifier p s }
 
 {
