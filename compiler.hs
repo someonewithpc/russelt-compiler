@@ -1,5 +1,5 @@
 module Main where
-import Lexer
+import Scanner
 import Parser
 
 
