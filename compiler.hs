@@ -1,53 +1,81 @@
+{-# LANGUAGE ViewPatterns #-}
+
 module Main where
-import System.Environment
+-- import System.Environment
 import Data.List
 import Scanner
 import Parser
+import Options.Applicative
+import Data.Monoid ((<>))
 
-data Flag = Help | Output String | PrintTokenList | PrintParseTree | Quiet | File String deriving (Show, Eq, Ord)
+data Flag = Flag
+  {
+    help :: Bool,
+    input_file :: String,
+    output_file :: Maybe String,
+    print_token_list :: Bool,
+    print_parse_tree :: Bool,
+    print_instruction_list :: Bool,
+    print_mips :: Bool,
+    no_splash :: Bool
+  }
+  deriving Show
 
-check_flag :: Flag -> [Flag] -> Bool
-check_flag _ [] = False
-check_flag f (p:xs)
-  | f == p    = True
-  | otherwise = check_flag f xs
-
-help_screen :: String
-help_screen = "Usage:\n\n\tcompiler [command-line-options] <input-file>\n\n Commands:\n\n\
-           \ \t-h\t\t\tHelp info \n \
-           \ \t-o <file>\t\tSet '<file>.asm' as output file (default 'out.asm')\n \
-           \ \t--print-token-list\tPrint scanner's token list\n \
-           \ \t--print-parse-tree\tPrint parser's tree\n \
-           \ \t-q\t\t\tQuiet compile (don't print the header nor the final message)\n"
+argument_parser :: Parser Flag
+argument_parser = Flag
+  <$> switch
+  ( long "help"
+    <> short 'h'
+    <> help "Display this help" )
+  <*> argument str
+  -- https://hackage.haskell.org/package/optparse-applicative-0.15.1.0/docs/Options-Applicative.html#v:str
+  ( metavar "<file>"
+    <> help "Input file" )
+  <*> strOption
+  ( metavar "<file>"
+    <> long "output-file"
+    <> short 'o'
+    <> help "Output file" )
+  <*> switch
+  ( long "print-token-list"
+    <> short 't'
+    <> help "Print the scanner's token list" )
+  <*> switch
+  ( long "print-parse-tree"
+    <> short 'p'
+    <> help "Print the parser's tree" )
+  <*> switch
+  ( long "print-instruction-list"
+    <> short 'i'
+    <> help "Print the compiler's intermediate code" )
+  <*> switch
+  ( long "print-mips"
+    <> short 'm'
+    <> help "Print the compiler's MIPS code" )
+  <*> switch
+  ( long "no-splash"
+    <> short 's'
+    <> help "Silence the splash screen" )
 
 splash_screen :: String
 splash_screen = "Russel! - A compiler for a subset of Rust to MIPS written in Haskell\n \
-           \ |- run <compiler -h> for help\n \
-           \ |- Version 0.1.0\n \
-           \ |- By Diogo Cordeiro and Hugo Sales (DCC-FCUP)\n\n"
+                \ |- Version 0.1.0\n \
+                \ |- By Diogo Cordeiro and Hugo Sales (DCC-FCUP)\n\n"
 
 from_just :: String -> Maybe b -> b
 from_just msg Nothing = error ("ERROR: " ++ msg)
 from_just _ (Just x) = x
 
-argument_handler :: [String] -> [Flag]
-argument_handler [] = []
-argument_handler ("-h":xs) = Help : (argument_handler xs)
-argument_handler ("-q":xs) = Quiet : (argument_handler xs)
-argument_handler ("--print-token-list":xs) = PrintTokenList : (argument_handler xs)
-argument_handler ("--print-parse-tree":xs) = PrintParseTree : (argument_handler xs)
-argument_handler ("-o":f:xs) = (Output f) : (argument_handler xs)
-argument_handler (f:xs) = (File f) : (argument_handler xs)
 
-get_file_output :: [Flag] -> String
-get_file_output [] = "out.asm"
-get_file_output (Output s:xs) = s ++ ".asm"
-get_file_output (_:xs) = get_file_output xs
+-- get_output_file :: [Flag] -> String
+-- get_output_file [] = "out.asm"
+-- get_output_file (OutputFile s:xs) = s ++ ".asm"
+-- get_output_file (_:xs) = get_output_file xs
 
-get_file_input :: [Flag] -> Maybe String
-get_file_input [] = Nothing
-get_file_input (File s:xs) = Just s
-get_file_input (_:xs) = get_file_input xs
+-- get_input_file :: [Flag] -> Maybe String
+-- get_input_file [] = Nothing
+-- get_input_file (InputFile s:xs) = Just s
+-- get_input_file (_:xs) = get_input_file xs
 
 newtype Reg = Reg Int
 
@@ -120,44 +148,45 @@ comp_stmt (Expression exp) = comp_exp exp
 comp_exp :: Exp -> Block
 comp_exp (LitExp (VTInt i _))  = ([Unary (Reg 0) (ANumber i)], (Reg 0))
 comp_exp (Var s)               = ([Unary (Reg 0) (AVar s)], (Reg 0))
--- comp_exp (BinaryOp el so er)   = let (insl, rl) = comp_exp el
---                                      (insr, rr) = rebase rl (comp_exp er)  in
---                                    (insl ++ insr ++ [Binary (next rr) (AReg rl) (str_op so) (AReg rr)], (next rr))
+comp_exp (BinaryOp el so er)   = let (insl, rl) = comp_exp el
+                                     (insr, rr) = rebase rl (comp_exp er)  in
+                                   (insl ++ insr ++ [Binary (next rr) (AReg rl) (read so :: Op) (AReg rr)], (next rr))
 
 main :: IO ()
 main = do
-  arg_list <- getArgs
-  let flag_list = sort (argument_handler(fmap id arg_list))
+  args <- execParser info (helper <*> argument_parser) (fullDesc <> header splash_screen)
+  putStrLn (show args)
+  -- let flag_list = sort (argument_handler(fmap id arg_list))
 
-  let quiet_compile = check_flag Quiet flag_list
-  if (not quiet_compile) then
-    putStr splash_screen
-  else return()
+  -- let quiet_compile = elem Quiet flag_list
+  -- if (not quiet_compile) then
+  --   putStr splash_screen
+  -- else return ()
 
-  let print_help_screen = check_flag Help flag_list
-  if (print_help_screen) then
-    putStr help_screen
-  else return()
+  -- let print_help_screen = elem Help flag_list
+  -- if (print_help_screen) then
+  --   putStr help_screen
+  -- else return ()
 
-  let outputFile = get_file_output flag_list
-  raw_input <- readFile (from_just "no input files\nTry the '-h' option for basic \
-                                   \information" (get_file_input flag_list))
+  -- let output_file = get_output_file flag_list
+  -- raw_input <- readFile $ from_just "no input files\nTry the '-h' option for basic \
+  --                                  \information" $ get_input_file flag_list
 
-  let token_list = scan_tokens raw_input
-  let parse_tree = parse token_list
+  -- let token_list = scan_tokens raw_input
+  -- let parse_tree = parse token_list
+  -- let (compile_result, reg) = compile parse_tree
 
-  let print_token_list = check_flag PrintTokenList flag_list
-  if print_token_list then
-    putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
-  else return()
+  -- let print_token_list = elem PrintTokenList flag_list
+  -- if print_token_list then
+  --   putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
+  -- else return ()
 
-  let print_parse_tree = check_flag PrintParseTree flag_list
-  if print_parse_tree then
-    putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
-  else return()
+  -- let print_parse_tree = elem PrintParseTree flag_list
+  -- if print_parse_tree then
+  --   putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
+  -- else return ()
 
-  putStrLn ("Compile Result:\n" ++ (show (compile parse_tree)))
-
-  if (not quiet_compile) then
-    putStrLn "Russel! is done compiling."
-  else return()
+  -- if (not quiet_compile) then
+  --   putStrLn ("Compile Result:\n" ++ (unlines $ map show compile_result))
+  -- else
+  --   writeFile output_file (show compile_result)
