@@ -49,7 +49,80 @@ get_file_input [] = Nothing
 get_file_input (File s:xs) = Just s
 get_file_input (_:xs) = get_file_input xs
 
-compile t = undefined
+newtype Reg = Reg Int
+
+instance Show Reg where
+  show (Reg i) = "t" ++ (show i)
+
+data Atom = AVar String
+          | AReg Reg
+          | ANumber Int
+  deriving Show
+
+data Op = Plus | Minus | Div | Mult | Rem
+
+instance Show Op where
+  show Plus  = "+"
+  show Minus = "-"
+  show Div   = "/"
+  show Mult  = "*"
+  show Rem   = "%"
+
+instance Read Op where
+  readsPrec _ ('+':rest) = [(Plus, rest)]
+  -- read "-" = Minus
+  -- read "*" = Mult
+  -- read "/" = Div
+  -- read "%" = Rem
+  -- read _   = undefined
+
+data Instruction = Unary Reg Atom
+                 | Binary Reg Atom Op Atom
+
+instance Show Instruction where
+  show (Unary r a)         = (show r) ++ ":= " ++ (show a)
+  show (Binary r al op ar) = (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar)
+
+type Block = ([Instruction], Reg)
+
+next :: Reg -> Reg
+next (Reg r) = (Reg (r + 1))
+
+relocate_reg (Reg b) (Reg r) = (Reg (b + r))
+
+relocate_atom (Reg b) (AReg (Reg r)) = (AReg (Reg (b + r)))
+relocate_atom _ a = a
+
+relocate :: Reg -> Instruction -> Instruction
+relocate rb (Unary r a)          = Unary (relocate_reg rb r) (relocate_atom rb a)
+relocate rb (Binary r al op ar)  = Binary (relocate_reg rb r) (relocate_atom rb al) op (relocate_atom rb ar)
+
+rebase :: Reg -> Block -> Block
+rebase rb (ins, rr) = (map (relocate rb) ins, (relocate_reg rb rr))
+
+merge_block :: Block -> Block -> Block
+merge_block (insl, rl) blkr = let (insr, rr) = rebase (next rl) blkr in
+                                (insl ++ insr, rr)
+
+resequence :: [Block] -> Block
+resequence (blk : blks) = foldl merge_block blk blks
+
+compile :: [Tree] -> Block
+compile t = resequence $ map comp_tree t
+
+comp_tree :: Tree -> Block
+comp_tree (FuncDecl name st) = undefined
+comp_tree (Statements sts)   = resequence $ map comp_stmt sts
+
+comp_stmt :: Statement -> Block
+comp_stmt (Expression exp) = comp_exp exp
+
+comp_exp :: Exp -> Block
+comp_exp (LitExp (VTInt i _))  = ([Unary (Reg 0) (ANumber i)], (Reg 0))
+comp_exp (Var s)               = ([Unary (Reg 0) (AVar s)], (Reg 0))
+-- comp_exp (BinaryOp el so er)   = let (insl, rl) = comp_exp el
+--                                      (insr, rr) = rebase rl (comp_exp er)  in
+--                                    (insl ++ insr ++ [Binary (next rr) (AReg rl) (str_op so) (AReg rr)], (next rr))
 
 main :: IO ()
 main = do
