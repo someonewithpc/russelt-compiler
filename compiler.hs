@@ -67,7 +67,8 @@ main = do
   else return()
 
   let outputFile = get_file_output flag_list
-  raw_input <- readFile (from_just "no input files\nTry the '-h' option for basic information" (get_file_input flag_list))
+  raw_input <- readFile (from_just "no input files\nTry the '-h' option for basic \
+                                   \information" (get_file_input flag_list))
 
   let token_list = scan_tokens raw_input
   let parse_tree = parse token_list
@@ -82,7 +83,7 @@ main = do
     putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
   else return()
 
-  compile parse_tree
+  putStrLn ("Compile Result:\n" ++ (show (compile parse_tree)))
 
   if (not quiet_compile) then
     putStrLn "Russel! is done compiling."
