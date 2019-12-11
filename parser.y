@@ -69,7 +69,7 @@ Rust : FuncDecl Rust                               { $1 : $2 }
      | {- empty -}                                 { [] }
 
 Statement : ExpSemi                                { Expression $1 }
-          | let id '=' ExpSemi                     { VarDecl $2 $4 "auto" }
+          | let id '=' ExpSemi                     { VarDecl $2 $4 Tauto }
           | let id ':' Type '=' ExpSemi            { VarDecl $2 $6 $4 }
           | While                                  { $1 }
           | Println ';'                            { $1 }
@@ -89,9 +89,12 @@ FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
 Println : println '(' Exp ')'                      { Println $3 }
 Readline : read_line '(' ')'                       { Readline }
 
-If : if Exp Block                                  { IfStmt $2 $3 [] }
-   | if Exp Block else Block                       { IfStmt $2 $3 $5 }
-   | if Exp Block else If                          { IfStmt $2 $3 [Expression $5] }
+If : if Exp IfBlock                                { IfStmt $2 $3 [] }
+   | if Exp IfBlock else IfBlock                   { IfStmt $2 $3 $5 }
+   | if Exp IfBlock else If                        { IfStmt $2 $3 [Expression $5] }
+
+IfBlock : '{' Statements '}'                       { $2 }
+        | '{' Exp '}'                              { [Expression $2] }
 
 While : while Exp Block                            { WhileStmt $2 $3 }
 
@@ -100,8 +103,8 @@ ExpSemi : Exp ';'                                  { $1 }
 
 Exp
     -- Value Expressions
-    : int                                          { LitExp (TInt $1) }
-    | bool                                         { LitExp (TBool $1) }
+    : int                                          { LitExp (VTInt $1 Ti32) }
+    | bool                                         { LitExp (VTBool $1) }
     | id                                           { Var $1 }
     -- Arithmetic Operators
     | Exp '+' Exp                                  { BinaryOp $1 "+" $3 }
@@ -129,7 +132,7 @@ Exp
 --               | Readline
 --               | Function String [Exp]
 
-data Exp = LitExp Type
+data Exp = LitExp ValueType
          | Var String
          | BinaryOp Exp String Exp
          | UnaryOp String Exp
@@ -137,7 +140,7 @@ data Exp = LitExp Type
          | Readline
 
 data Statement = Expression Exp
-               | VarDecl String Exp String
+               | VarDecl String Exp Type
                | WhileStmt Exp [Statement]
                | Println Exp
 
@@ -147,40 +150,40 @@ data Tree = FuncDecl String [Statement]
 -- Util
 wrapped s = "[\n" ++ s ++ "]"
 wrapped' s = "[" ++ s ++ "]"
-padded lvl s = unlines $ map ((++) $ replicate (lvl*2) ' ') (lines s)
-padded_print lvl l = wrapped $ intercalate "\n" $ map (padded lvl . print_tree lvl) l
+padded s = unlines $ map ((++) $ replicate 2 ' ') (lines s)
+padded_print l = wrapped $ intercalate "\n" $ map (padded . print_tree) l
 
 -- Parse Tree Printing
-class Print a where print_tree :: Int -> a -> [Char]
+class Print a where print_tree :: a -> [Char]
 
 instance Print Tree where
-  print_tree lvl (FuncDecl name statements) = "define function " ++ name ++ ": " ++ (padded_print lvl statements)
-  print_tree lvl (Statements statements)    = padded_print lvl statements
+  print_tree (FuncDecl name statements) = "define function " ++ name ++ ": " ++ (padded_print statements)
+  print_tree (Statements statements)    = padded_print statements
 
 instance Print Statement where
-  print_tree lvl (Expression exp)           = print_tree lvl exp
-  print_tree lvl (VarDecl string exp typ)   = "set " ++ wrapped' (show string ++ ": " ++ typ) ++ " to "
-                                              ++ print_tree lvl exp
-  print_tree lvl (WhileStmt exp stmt)       = "while cond:" ++ print_tree lvl exp ++
-                                              "\n" ++ (padded_print lvl stmt)
-  print_tree lvl (Println exp)              = "call println " ++ (print_tree lvl exp)
+  print_tree (Expression exp)           = print_tree exp
+  print_tree (VarDecl string exp typ)   = "set " ++ wrapped' (show string ++ ": " ++ (show typ)) ++ " to "
+                                              ++ print_tree exp
+  print_tree (WhileStmt exp stmt)       = "while cond:" ++ print_tree exp ++
+                                              "\n" ++ (padded_print stmt)
+  print_tree (Println exp)              = "call println " ++ (print_tree exp)
 
 instance Print Exp where
-  print_tree lvl (LitExp vt)                = print_tree lvl vt
-  print_tree lvl (Var str)                  = str
-  print_tree lvl (BinaryOp exp1 str exp2)   = (print_tree lvl exp1) ++ " " ++ str ++ " " ++ (print_tree lvl exp2)
-  print_tree lvl (UnaryOp str exp)          = str ++ (print_tree lvl exp)
-  print_tree lvl (IfStmt exp stmt [])       = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt)
-  print_tree lvl (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree lvl exp ++ "] " ++ (padded_print lvl stmt1) ++
-                                              " else: " ++ (padded_print lvl stmt2)
-  print_tree lvl (Readline)                 = "call read_line"
+  print_tree (LitExp vt)                = print_tree vt
+  print_tree (Var str)                  = "variable " ++ (show str)
+  print_tree (BinaryOp exp1 str exp2)   = (print_tree exp1) ++ " " ++ str ++ " " ++ (print_tree exp2)
+  print_tree (UnaryOp str exp)          = str ++ (print_tree exp)
+  print_tree (IfStmt exp stmt [])       = "if cond: [" ++ print_tree exp ++ "] " ++ (padded_print stmt)
+  print_tree (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree exp ++ "] " ++ (padded_print stmt1) ++
+                                              " else: " ++ (padded_print stmt2)
+  print_tree (Readline)                 = "call read_line"
 
-instance Print Type where
-  print_tree lvl (TInt i)                  = wrapped' $ show i ++ ": i32"
-  print_tree lvl (TBool b)                 = wrapped' $ show b ++ ": bool"
-  print_tree _ _                            = "UNDEFINED"
+instance Print ValueType where
+  print_tree (VTInt i t)                = wrapped' $ show i ++ ": " ++ (tail (show t))
+  print_tree (VTBool b)                 = wrapped' $ show b ++ ": bool"
+  print_tree _                          = undefined -- "UNDEFINED"
 
-printTree = padded_print 1
+printTree = padded_print
 
 parseError :: [Token] -> a
 parseError (token:tokenList) = let pos = token_pos(token) in
