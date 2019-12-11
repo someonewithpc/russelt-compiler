@@ -1,9 +1,12 @@
 parser
-scanner.hs
+lexer.hs
 parser.hs
-scanner.hi
-scanner.o
+lexer.hi
+lexer.o
 parser.hi
 parser.o
 parser.info
-scanner.info
+lexer.info
+compiler
+compiler.hi
+compiler.o
