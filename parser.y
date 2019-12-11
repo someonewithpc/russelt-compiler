@@ -1,6 +1,6 @@
 {
 module Parser where
-import Lexer
+import Scanner
 import Text.Printf
 import Data.List
 }

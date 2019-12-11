@@ -1,19 +1,19 @@
-OBJS=lexer.hi lexer.o parser.hi parser.o parser.info lexer.info compiler.o
+OBJS=scanner.hi scanner.o scanner.info parser.hi parser.o parser.info compiler.o
 
-INTERM=lexer.hs parser.hs compiler.hs
+INTERM=scanner.hs parser.hs
 
 PROGRAM=compiler
 
 all: $(PROGRAM)
 
-lexer.hs: lexer.x
-	alex --info -o lexer.hs lexer.x
+scanner.hs: scanner.x
+	alex --info -o scanner.hs scanner.x
 
 parser.hs : parser.y
 	happy --info -o parser.hs parser.y
 
 
 $(PROGRAM): $(INTERM)
-	ghc -o $(PROGRAM) $(INTERM)
+	ghc -o $(PROGRAM) $(INTERM) compiler.hs
 clean:
 	rm -f $(PROGRAM) $(INTERM) $(OBJS)

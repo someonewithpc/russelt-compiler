@@ -1,5 +1,5 @@
 {
-module Lexer where
+module Scanner where
 }
 
 %wrapper "posn"
