@@ -9,24 +9,18 @@ import Data.Monoid ((<>))
 
 data Flag = Flag
   {
-    display_help :: Bool,
     input_file :: String,
     output_file :: Maybe String,
     print_token_list :: Bool,
     print_parse_tree :: Bool,
     print_instruction_list :: Bool,
-    print_mips :: Bool,
-    no_splash :: Bool
+    print_mips :: Bool
   }
   deriving Show
 
 argument_parser :: Parser Flag
 argument_parser = Flag
-  <$> switch
-  ( long "help"
-    <> short 'h'
-    <> help "Display this help" )
-  <*> argument str
+  <$>  argument str
   -- https://hackage.haskell.org/package/optparse-applicative-0.15.1.0/docs/Options-Applicative.html#v:str
   ( metavar "<file>"
     <> help "Input file" )
@@ -51,10 +45,6 @@ argument_parser = Flag
   ( long "print-mips"
     <> short 'm'
     <> help "Print the compiler's MIPS code" )
-  <*> switch
-  ( long "no-splash"
-    <> short 's'
-    <> help "Silence the splash screen" )
 
 splash_screen :: String
 splash_screen = "Russel! - A compiler for a subset of Rust to MIPS written in Haskell\n \
@@ -154,7 +144,14 @@ comp_exp (BinaryOp el so er)   = let (insl, rl) = comp_exp el
 main :: IO ()
 main = do
   args <- execParser (info (helper <*> argument_parser) (fullDesc <> header splash_screen))
-  putStrLn (show args)
+  raw_input <- readFile $ input_file args
+
+  let token_list = scan_tokens raw_input
+  let parse_tree = parse token_list
+  let (compile_result, reg) = compile parse_tree
+  putStrLn ("Compile Result:\n" ++ (unlines $ map show compile_result))
+
+  -- putStrLn (show args)
   -- let flag_list = sort (argument_handler(fmap id arg_list))
 
   -- let quiet_compile = elem Quiet flag_list
@@ -170,11 +167,6 @@ main = do
   -- let output_file = get_output_file flag_list
   -- raw_input <- readFile $ from_just "no input files\nTry the '-h' option for basic \
   --                                  \information" $ get_input_file flag_list
-
-  -- let token_list = scan_tokens raw_input
-  -- let parse_tree = parse token_list
-  -- let (compile_result, reg) = compile parse_tree
-
   -- let print_token_list = elem PrintTokenList flag_list
   -- if print_token_list then
   --   putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
@@ -186,6 +178,5 @@ main = do
   -- else return ()
 
   -- if (not quiet_compile) then
-  --   putStrLn ("Compile Result:\n" ++ (unlines $ map show compile_result))
   -- else
   --   writeFile output_file (show compile_result)
