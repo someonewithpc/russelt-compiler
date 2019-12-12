@@ -53,10 +53,6 @@ splash_screen = "Russel! - A compiler for a subset of Rust to MIPS written in Ha
                 \ |- Version 0.1.0\n \
                 \ |- By Diogo Cordeiro and Hugo Sales (DCC-FCUP)\n\n"
 
-from_just :: String -> Maybe b -> b
-from_just msg Nothing = error ("ERROR: " ++ msg)
-from_just _ (Just x) = x
-
 -- Registers
 
 newtype Reg = Reg Integer
@@ -219,40 +215,34 @@ comp_exp (BinaryOp el so er)   = let blkl@(insl, rl, _) = comp_exp el
 
 main :: IO ()
 main = do
+  -- Input --
   args <- execParser (info (helper <*> argument_parser) (fullDesc <> header splash_screen))
   raw_input <- readFile $ input_file args
 
+  -- Process --
   let token_list = scan_tokens raw_input
   let parse_tree = parse token_list
   let (compile_result, _, _) = compile parse_tree
-  putStrLn ("Compile Result:\n" ++ (unlines $ map show compile_result))
 
-  -- putStrLn (show args)
-  -- let flag_list = sort (argument_handler(fmap id arg_list))
+  -- Output --
+  if (print_token_list args) then
+    putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
+  else return ()
 
-  -- let quiet_compile = elem Quiet flag_list
-  -- if (not quiet_compile) then
-  --   putStr splash_screen
-  -- else return ()
+  if (print_parse_tree args) then
+    putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
+  else return ()
 
-  -- let print_help_screen = elem Help flag_list
-  -- if (print_help_screen) then
-  --   putStr help_screen
-  -- else return ()
+  if (print_instruction_list args) then
+    putStrLn ("Instruction List:\n")
+  else return ()
 
-  -- let output_file = get_output_file flag_list
-  -- raw_input <- readFile $ from_just "no input files\nTry the '-h' option for basic \
-  --                                  \information" $ get_input_file flag_list
-  -- let print_token_list = elem PrintTokenList flag_list
-  -- if print_token_list then
-  --   putStrLn ("Token List:\n" ++ (show token_list) ++ "\n")
-  -- else return ()
+  let compile_output = (unlines $ map show compile_result)
+  if (print_mips args) then
+    putStrLn ("Compile Result:\n" ++ compile_output)
+  else return ()
 
-  -- let print_parse_tree = elem PrintParseTree flag_list
-  -- if print_parse_tree then
-  --   putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
-  -- else return ()
+  let out_file = fromMaybe "out.asm" (output_file args)
 
-  -- if (not quiet_compile) then
-  -- else
-  --   writeFile output_file (show compile_result)
+  writeFile out_file compile_output
+
