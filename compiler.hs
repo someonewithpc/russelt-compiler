@@ -82,7 +82,11 @@ next r = r + 1
 data Atom = AVar String
           | AReg Reg
           | ANumber Int
-  deriving Show
+
+instance Show Atom where
+  show (AVar s) = s
+  show (AReg r) = show r
+  show (ANumber i) = show i
 
 relocate_atom :: Reg -> Atom -> Atom
 relocate_atom l (AReg r) = AReg $ l + r
@@ -113,8 +117,8 @@ data Instruction = Unary Reg Atom
                  | Binary Reg Atom Op Atom
 
 instance Show Instruction where
-  show (Unary r a)         = (show r) ++ ":= " ++ (show a)
-  show (Binary r al op ar) = (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar)
+  show (Unary r a)         = (show r) ++ ":= " ++ (show a) ++ ";"
+  show (Binary r al op ar) = (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
 
 
 relocate_instruction :: Reg -> Instruction -> Instruction
