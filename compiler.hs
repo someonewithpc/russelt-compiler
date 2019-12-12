@@ -1,7 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module Main where
--- import System.Environment
 import Data.List
 import Scanner
 import Parser
@@ -10,7 +9,7 @@ import Data.Monoid ((<>))
 
 data Flag = Flag
   {
-    help :: Bool,
+    display_help :: Bool,
     input_file :: String,
     output_file :: Maybe String,
     print_token_list :: Bool,
@@ -31,11 +30,11 @@ argument_parser = Flag
   -- https://hackage.haskell.org/package/optparse-applicative-0.15.1.0/docs/Options-Applicative.html#v:str
   ( metavar "<file>"
     <> help "Input file" )
-  <*> strOption
+  <*> (optional $ strOption
   ( metavar "<file>"
     <> long "output-file"
     <> short 'o'
-    <> help "Output file" )
+    <> help "Output file" ))
   <*> switch
   ( long "print-token-list"
     <> short 't'
@@ -154,7 +153,7 @@ comp_exp (BinaryOp el so er)   = let (insl, rl) = comp_exp el
 
 main :: IO ()
 main = do
-  args <- execParser info (helper <*> argument_parser) (fullDesc <> header splash_screen)
+  args <- execParser (info (helper <*> argument_parser) (fullDesc <> header splash_screen))
   putStrLn (show args)
   -- let flag_list = sort (argument_handler(fmap id arg_list))
 
