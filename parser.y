@@ -120,8 +120,8 @@ Exp
     | Exp '&&' Exp                                 { BinaryOp $1 "&&" $3 }
     | Exp '==' Exp                                 { BinaryOp $1 "==" $3 }
     | Exp '!=' Exp                                 { BinaryOp $1 "!=" $3 }
-    | Exp '<' Exp                                  { BinaryOp $1 "<" $3 }
-    | Exp '>' Exp                                  { BinaryOp $1 ">" $3 }
+    | Exp '<'  Exp                                 { BinaryOp $1 "<"  $3 }
+    | Exp '>'  Exp                                 { BinaryOp $1 ">"  $3 }
     | Exp '<=' Exp                                 { BinaryOp $1 "<=" $3 }
     | Exp '>=' Exp                                 { BinaryOp $1 ">=" $3 }
     | '!' Exp                                      { UnaryOp "!" $2 }
