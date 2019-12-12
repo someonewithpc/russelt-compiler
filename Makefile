@@ -14,6 +14,6 @@ parser.hs : parser.y
 
 
 $(PROGRAM): $(INTERM)
-	ghc -o $(PROGRAM) $(INTERM) compiler.hs
+	ghc -dynamic -o $(PROGRAM) $(INTERM) compiler.hs
 clean:
 	rm -f $(PROGRAM) $(INTERM) $(OBJS)
