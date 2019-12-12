@@ -6,6 +6,8 @@ import Scanner
 import Parser
 import Options.Applicative
 import Data.Monoid ((<>))
+import Data.Maybe
+import Control.Monad
 
 data Flag = Flag
   {
@@ -74,8 +76,8 @@ instance Num Reg where
 reg0 = Reg 0
 reg1 = Reg 1
 
-next :: Reg -> Reg
-next r = r + 1
+nextR :: Reg -> Reg
+nextR r = r + 1
 
 -- Atoms
 
@@ -94,50 +96,102 @@ relocate_atom _ a = a
 
 -- Operators
 
-data Op = Plus | Minus | Div | Mult | Rem
+data NumOp = Plus | Minus | Div | Mult | Rem
 
-instance Show Op where
+instance Show NumOp where
   show Plus  = "+"
   show Minus = "-"
   show Div   = "/"
   show Mult  = "*"
   show Rem   = "%"
 
-instance Read Op where
+instance Read NumOp where
   readsPrec _ ('+':rest) = [(Plus, rest)]
   readsPrec _ ('-':rest) = [(Minus, rest)]
   readsPrec _ ('*':rest) = [(Mult, rest)]
   readsPrec _ ('/':rest) = [(Div, rest)]
   readsPrec _ ('%':rest) = [(Rem, rest)]
-  readsPrec _ _          = error "Invalid characther to make an `Op`"
+  readsPrec _ _          = error "Invalid character to make an `NumOp`"
+
+data RelOp = Equal | Diff | Lt | Gt | Le | Ge
+
+instance Show RelOp where
+  show Equal  = "=="
+  show Diff   = "!="
+  show Le     = "<="
+  show Ge     = ">="
+  show Lt     = "<"
+  show Gt     = ">"
+
+instance Read RelOp where
+  readsPrec _ (c:'=':rest) | c == '<' = [(Le, rest)]
+                           | c == '>' = [(Ge, rest)]
+                           | c == '=' = [(Equal, rest)]
+                           | c == '!' = [(Diff, rest)]
+  readsPrec _ ('<':rest)              = [(Lt, rest)]
+  readsPrec _ ('>':rest)              = [(Gt, rest)]
+  readsPrec _ _                       = error "Invalid character to make an `RelOp`"
+
+-- Label
+
+data Label = Label Integer
+
+label0 = Label 0
+label1 = Label 1
+
+instance Show Label where
+  show (Label l) = "label" ++ (show l)
+
+instance Num Label where
+  (Label l) + (Label r) = Label $ l + r
+  (Label l) - (Label r)
+    | l >= r            = Label $ l - r
+    | otherwise         = undefined
+  fromInteger i         = (Label i)
+  (*)                   = undefined
+  abs                   = undefined
+  signum                = undefined
+
+nextL :: Label -> Label
+nextL l = l + 1
 
 -- Instructions
 
 data Instruction = Unary Reg Atom
-                 | Binary Reg Atom Op Atom
+                 | Binary Reg Atom NumOp Atom
+                 | Goto Label
+                 | MkLabel Label
+                 | If Atom RelOp Atom Label (Maybe Label)
 
 instance Show Instruction where
-  show (Unary r a)         = (show r) ++ ":= " ++ (show a) ++ ";"
-  show (Binary r al op ar) = (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
+  show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
+  show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
+  show (Goto l)             = "  goto " ++ show l
+  show (MkLabel l)          = show l ++ ":"
+  show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar) ++ " then\n  " ++ (show (Goto lt)) ++ (maybe "" (\_ -> "\n  else\n  " ++ (show (Goto (fromJust lf)))) lf)
 
-
-relocate_instruction :: Reg -> Instruction -> Instruction
-relocate_instruction rb (Unary r a)          = Unary (rb + r) (relocate_atom rb a)
-relocate_instruction rb (Binary r al op ar)  = Binary (rb + r) (relocate_atom rb al) op (relocate_atom rb ar)
+relocate_instruction :: Reg -> Label -> Instruction -> Instruction
+relocate_instruction rb _ (Unary r a)             = Unary (rb + r) (relocate_atom rb a)
+relocate_instruction rb _ (Binary r al numop ar)  = Binary (rb + r) (relocate_atom rb al) numop (relocate_atom rb ar)
+relocate_instruction rb lb (If al relop ar lt lf) = If (relocate_atom rb al) relop (relocate_atom rb ar) (lb + lt) (liftM (+ lb) lf)
+relocate_instruction _ _ a                        = a
 
 -- Blocks
 
-type Block = ([Instruction], Reg)
+type Block = ([Instruction], Reg, Label)
 
-relocate_block :: Reg -> Block -> Block
-relocate_block rb (ins, rr) = (map (relocate_instruction rb) ins, (rb + rr))
+relocate_block :: Reg -> Label -> Block -> Block
+relocate_block rb lb (ins, rr, lr) = (map (relocate_instruction rb lb) ins, (rb + rr), (lb + lr))
 
 merge_block :: Block -> Block -> Block
-merge_block (insl, rl) blkr = (insl ++ insr, rr) where (insr, rr) = relocate_block (next rl) blkr
+merge_block (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = relocate_block (nextR rl) ll blkr
 
 inst_block :: Instruction -> Block
-inst_block (Unary reg a)         = ([Unary reg a], reg)
-inst_block (Binary reg al op ar) = ([Binary reg al op ar], reg)
+inst_block (Unary reg a)          = ([Unary reg a], reg, label0)
+inst_block (Binary reg al op ar)  = ([Binary reg al op ar], reg, label0)
+inst_block (Goto l)               = ([Goto l], reg0, label0)
+inst_block (MkLabel l)            = ([MkLabel l], reg0, l)
+inst_block (If al relop ar lt lf) = ([If al relop ar lt lf], reg0, (fromMaybe lt lf)) -- Use lf if not Nothing, otherwise use lt
 
 resequence :: [Block] -> Block
 resequence (blk : blks) = foldl merge_block blk blks
@@ -157,9 +211,9 @@ comp_stmt (Expression exp) = comp_exp exp
 comp_exp :: Exp -> Block
 comp_exp (LitExp (VTInt i _))  = inst_block $ Unary reg0 (ANumber i)
 comp_exp (Var s)               = inst_block $ Unary reg0 (AVar s)
-comp_exp (BinaryOp el so er)   = let blkl@(insl, rl) = comp_exp el
-                                     (insr, rr) = merge_block blkl (comp_exp er) in
-                                   (insr ++ [Binary (next rr) (AReg rl) (read so :: Op) (AReg rr)], (next rr))
+comp_exp (BinaryOp el so er)   = let blkl@(insl, rl, _) = comp_exp el
+                                     (insr, rr, lr) = merge_block blkl (comp_exp er) in
+                                   (insr ++ [Binary (nextR rr) (AReg rl) (read so :: NumOp) (AReg rr)], (nextR rr), (nextL lr))
 
 
 
@@ -170,7 +224,7 @@ main = do
 
   let token_list = scan_tokens raw_input
   let parse_tree = parse token_list
-  let (compile_result, reg) = compile parse_tree
+  let (compile_result, _, _) = compile parse_tree
   putStrLn ("Compile Result:\n" ++ (unlines $ map show compile_result))
 
   -- putStrLn (show args)
