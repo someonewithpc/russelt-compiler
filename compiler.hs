@@ -55,26 +55,40 @@ from_just :: String -> Maybe b -> b
 from_just msg Nothing = error ("ERROR: " ++ msg)
 from_just _ (Just x) = x
 
+-- Registers
 
--- get_output_file :: [Flag] -> String
--- get_output_file [] = "out.asm"
--- get_output_file (OutputFile s:xs) = s ++ ".asm"
--- get_output_file (_:xs) = get_output_file xs
-
--- get_input_file :: [Flag] -> Maybe String
--- get_input_file [] = Nothing
--- get_input_file (InputFile s:xs) = Just s
--- get_input_file (_:xs) = get_input_file xs
-
-newtype Reg = Reg Int
+newtype Reg = Reg Integer
 
 instance Show Reg where
   show (Reg i) = "t" ++ (show i)
+
+instance Num Reg where
+  (Reg l) + (Reg r)             = Reg $ l + r
+  (Reg l) - (Reg r) | l >= r    = Reg $ l - r
+                    | otherwise = undefined
+  fromInteger i                 = (Reg i)
+  (*)                           = undefined
+  abs                           = undefined
+  signum                        = undefined
+
+reg0 = Reg 0
+reg1 = Reg 1
+
+next :: Reg -> Reg
+next r = r + 1
+
+-- Atoms
 
 data Atom = AVar String
           | AReg Reg
           | ANumber Int
   deriving Show
+
+relocate_atom :: Reg -> Atom -> Atom
+relocate_atom l (AReg r) = AReg $ l + r
+relocate_atom _ a = a
+
+-- Operators
 
 data Op = Plus | Minus | Div | Mult | Rem
 
@@ -87,11 +101,13 @@ instance Show Op where
 
 instance Read Op where
   readsPrec _ ('+':rest) = [(Plus, rest)]
-  -- read "-" = Minus
-  -- read "*" = Mult
-  -- read "/" = Div
-  -- read "%" = Rem
-  -- read _   = undefined
+  readsPrec _ ('-':rest) = [(Minus, rest)]
+  readsPrec _ ('*':rest) = [(Mult, rest)]
+  readsPrec _ ('/':rest) = [(Div, rest)]
+  readsPrec _ ('%':rest) = [(Rem, rest)]
+  readsPrec _ _          = error "Invalid characther to make an `Op`"
+
+-- Instructions
 
 data Instruction = Unary Reg Atom
                  | Binary Reg Atom Op Atom
@@ -100,29 +116,29 @@ instance Show Instruction where
   show (Unary r a)         = (show r) ++ ":= " ++ (show a)
   show (Binary r al op ar) = (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar)
 
+
+relocate_instruction :: Reg -> Instruction -> Instruction
+relocate_instruction rb (Unary r a)          = Unary (rb + r) (relocate_atom rb a)
+relocate_instruction rb (Binary r al op ar)  = Binary (rb + r) (relocate_atom rb al) op (relocate_atom rb ar)
+
+-- Blocks
+
 type Block = ([Instruction], Reg)
 
-next :: Reg -> Reg
-next (Reg r) = (Reg (r + 1))
-
-relocate_reg (Reg b) (Reg r) = (Reg (b + r))
-
-relocate_atom (Reg b) (AReg (Reg r)) = (AReg (Reg (b + r)))
-relocate_atom _ a = a
-
-relocate :: Reg -> Instruction -> Instruction
-relocate rb (Unary r a)          = Unary (relocate_reg rb r) (relocate_atom rb a)
-relocate rb (Binary r al op ar)  = Binary (relocate_reg rb r) (relocate_atom rb al) op (relocate_atom rb ar)
-
-rebase :: Reg -> Block -> Block
-rebase rb (ins, rr) = (map (relocate rb) ins, (relocate_reg rb rr))
+relocate_block :: Reg -> Block -> Block
+relocate_block rb (ins, rr) = (map (relocate_instruction rb) ins, (rb + rr))
 
 merge_block :: Block -> Block -> Block
-merge_block (insl, rl) blkr = let (insr, rr) = rebase (next rl) blkr in
-                                (insl ++ insr, rr)
+merge_block (insl, rl) blkr = (insl ++ insr, rr) where (insr, rr) = relocate_block (next rl) blkr
+
+inst_block :: Instruction -> Block
+inst_block (Unary reg a)         = ([Unary reg a], reg)
+inst_block (Binary reg al op ar) = ([Binary reg al op ar], reg)
 
 resequence :: [Block] -> Block
 resequence (blk : blks) = foldl merge_block blk blks
+
+-- Compiling
 
 compile :: [Tree] -> Block
 compile t = resequence $ map comp_tree t
@@ -135,11 +151,13 @@ comp_stmt :: Statement -> Block
 comp_stmt (Expression exp) = comp_exp exp
 
 comp_exp :: Exp -> Block
-comp_exp (LitExp (VTInt i _))  = ([Unary (Reg 0) (ANumber i)], (Reg 0))
-comp_exp (Var s)               = ([Unary (Reg 0) (AVar s)], (Reg 0))
-comp_exp (BinaryOp el so er)   = let (insl, rl) = comp_exp el
-                                     (insr, rr) = rebase rl (comp_exp er)  in
-                                   (insl ++ insr ++ [Binary (next rr) (AReg rl) (read so :: Op) (AReg rr)], (next rr))
+comp_exp (LitExp (VTInt i _))  = inst_block $ Unary reg0 (ANumber i)
+comp_exp (Var s)               = inst_block $ Unary reg0 (AVar s)
+comp_exp (BinaryOp el so er)   = let blkl@(insl, rl) = comp_exp el
+                                     (insr, rr) = merge_block blkl (comp_exp er) in
+                                   (insr ++ [Binary (next rr) (AReg rl) (read so :: Op) (AReg rr)], (next rr))
+
+
 
 main :: IO ()
 main = do
