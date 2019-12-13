@@ -210,15 +210,15 @@ relocate_instruction rb lb (If al relop ar lt lf) = If      (relocate_atom rb al
 
 -- Blocks
 
-type Block = ([Instruction], (Maybe Reg), (Maybe Label))
+type Blk = ([Instruction], (Maybe Reg), (Maybe Label))
 
-relocate_block :: Maybe Reg -> Maybe Label -> Block -> Block
+relocate_block :: Maybe Reg -> Maybe Label -> Blk -> Blk
 relocate_block rb lb (ins, rr, lr) = (map (relocate_instruction rb lb) ins, (maybe_offset rb rr), (maybe_offset lb lr))
 
-merge_blk :: Block -> Block -> Block
+merge_blk :: Blk -> Blk -> Blk
 merge_blk (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = relocate_block (succ <$> rl) ll blkr
 
-inst_blk :: Instruction -> Block
+inst_blk :: Instruction -> Blk
 inst_blk (Unary reg a)          = ([Unary reg a],         (Just reg), Nothing)
 inst_blk (Binary reg al op ar)  = ([Binary reg al op ar], (Just reg), Nothing)
 inst_blk (Load reg addr)        = ([Load reg addr],       (Just reg), Nothing)
@@ -228,7 +228,7 @@ inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
                                     -- Use lf if not Nothing, otherwise use lt
 
-resequence :: [Block] -> Block
+resequence :: [Blk] -> Blk
 resequence (blk : blks) = foldl merge_blk blk blks
 
 -- Map
@@ -239,15 +239,15 @@ variables = singleton variable_address_index 0 :: Vars
 
 -- Compiling
 
-compile :: Vars -> [Tree] -> (Vars, Block)
+compile :: Vars -> [Tree] -> (Vars, Blk)
 compile vars t = second resequence $ foldl_with_map vars comp_tree t
 
-comp_tree :: Vars -> Tree -> (Vars, Block)
+comp_tree :: Vars -> Tree -> (Vars, Blk)
 comp_tree vars (FuncDecl name sts) = let blk = inst_blk (MkLabel (LabelS name)) in
                                        second (resequence . (blk :)) $ foldl_with_map vars comp_stmt sts
 comp_tree vars (Statements sts)    = second resequence $ foldl_with_map vars comp_stmt sts
 
-comp_stmt :: Vars -> Statement -> (Vars, Block)
+comp_stmt :: Vars -> Statement -> (Vars, Blk)
 comp_stmt vars (Expression exp)    = comp_exp vars exp
 comp_stmt vars (VarDecl s exp _)   = let ((Just addr), vars') =
                                            updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
@@ -262,7 +262,7 @@ comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, _)) = se
 
 
 
-comp_exp :: Vars -> Exp -> (Vars, Block)
+comp_exp :: Vars -> Exp -> (Vars, Blk)
 comp_exp vars (LitExp (VTInt i _)) = (,) vars $ inst_blk $ Unary reg0 (ANumber i)
 comp_exp vars (Var s)              = (,) vars $ inst_blk $ Load reg0 (vars ! s)
 comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
