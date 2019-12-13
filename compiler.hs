@@ -69,16 +69,15 @@ splash_screen = "Russel! - A compiler for a subset of Rust to MIPS written in Ha
 newtype Reg = Reg Integer
 
 instance Show Reg where
-  show (Reg i) = "t" ++ (show i)
+  show (Reg i) = "r" ++ (show i)
 
 instance Num Reg where
-  (Reg l) + (Reg r)             = Reg $ l + r
-  (Reg l) - (Reg r) | l >= r    = Reg $ l - r
-                    | otherwise = undefined
-  fromInteger i                 = (Reg i)
-  (*)                           = undefined
-  abs                           = undefined
-  signum                        = undefined
+  (Reg l) + (Reg r) = Reg $ l + r
+  (Reg l) - (Reg r) = Reg $ l - r
+  fromInteger i     = (Reg i)
+  (*)               = undefined
+  abs               = undefined
+  signum            = undefined
 
 instance Enum Reg where
   toEnum i = Reg (toInteger i)
@@ -102,10 +101,8 @@ instance Num Label where
   (LabelI l) + (LabelI r) = LabelI $ l + r
   (LabelS _) + (LabelI r) = LabelI r
   (LabelI l) + (LabelS _) = LabelI l
-  _ + _                    = error "Cannot add string labels"
-  (LabelI l) - (LabelI r)
-    | l >= r              = LabelI $ l - r
-    | otherwise           = undefined
+  _ + _                   = error "Cannot add string labels"
+  (LabelI l) - (LabelI r) = LabelI $ l - r
   _ - _                   = error "Cannot substract string labels"
   fromInteger i           = (LabelI i)
   (*)                     = undefined
@@ -185,22 +182,23 @@ data Instruction = Unary Reg Atom
                  | MkLabel Label
                  | If Atom Op Atom Label (Maybe Label)
                  | PrintLn Exp
+                 | Halt
 
 instance Show Instruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
   show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
   show (Load r addr)        = "  load " ++ (show r) ++ " (" ++ (show addr) ++ ")"
   show (Store r addr)       = "  store " ++ (show r) ++ " (" ++ (show addr) ++ ")"
-  show (PrintLn e)          = "  println " ++ ":= " ++ (print_tree e) ++ ";"
   show (Goto l)             = "  goto " ++ show l
   show (MkLabel l)          = show l ++ ":"
   show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
                               ++ " then\n  " ++ (show (Goto lt)) ++
                               (maybe "" (\jlf -> "\n  else\n  " ++ (show (Goto jlf))) lf)
+  show (PrintLn e)          = "  call println with" ++ (print_tree e) ++ ";"
+  show (Halt)               = "  halt;"
 
 relocate_instruction :: Maybe Reg -> Maybe Label -> Instruction -> Instruction
 relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
-relocate_instruction _ _   (PrintLn e)            = PrintLn e
 relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
 relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) a
 relocate_instruction rb _  (Store r a)            = Store   (fromJust $ maybe_offset rb $ Just r) a
@@ -208,6 +206,8 @@ relocate_instruction _ lb  (Goto l)               = Goto    (fromJust $ maybe_of
 relocate_instruction _ lb  (MkLabel l)            = MkLabel (fromJust $ maybe_offset lb $ Just l)
 relocate_instruction rb lb (If al relop ar lt lf) = If      (relocate_atom rb al) relop (relocate_atom rb ar)
                                                             (fromJust $ maybe_offset lb (Just lt)) (maybe_offset lb lf)
+relocate_instruction _ _   (PrintLn e)            = PrintLn e
+relocate_instruction _ _   (Halt)                 = Halt
 
 -- Blocks
 
@@ -226,9 +226,10 @@ inst_blk (Load reg addr)        = ([Load reg addr],       (Just reg), Nothing)
 inst_blk (Store reg addr)       = ([Store reg addr],      (Just reg), Nothing)
 inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
 inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
-inst_blk (PrintLn a)            = ([PrintLn a],       (Nothing), Nothing)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
                                   -- Use lf if not Nothing, otherwise use lt
+inst_blk (PrintLn a)            = ([PrintLn a],            Nothing,   Nothing)
+inst_blk (Halt)                 = ([Halt],                 Nothing,   Nothing)
 
 resequence :: [Blk] -> Blk
 resequence (blk : blks) = foldl merge_blk blk blks
@@ -250,7 +251,7 @@ variables = singleton variable_address_index 0 :: Vars
 -- Compiling
 
 compile :: Vars -> [Tree] -> (Vars, Blk)
-compile vars t = second resequence $ foldl_with_map vars comp_tree t
+compile vars t = second (resequence . (\blk -> blk ++ [inst_blk Halt])) $ foldl_with_map vars comp_tree t
 
 comp_tree :: Vars -> Tree -> (Vars, Blk)
 comp_tree vars (FuncDecl name sts) = let blk = inst_blk (MkLabel (LabelS name)) in
