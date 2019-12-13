@@ -186,7 +186,7 @@ data Instruction = Unary Reg Atom
                  | Goto Label
                  | MkLabel Label
                  | If Atom Op Atom Label (Maybe Label)
-                 | PrintLn Exp
+                 | PrintLn Reg
                  | Halt
 
 instance Show Instruction where
@@ -199,7 +199,7 @@ instance Show Instruction where
   show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
                               ++ " then\n  " ++ (show (Goto lt)) ++
                               (maybe "" (\jlf -> "\n  else\n  " ++ (show (Goto jlf))) lf)
-  show (PrintLn e)          = "  call println with" ++ (print_tree e) ++ ";"
+  show (PrintLn r)          = "  call println " ++ (show r) ++ ";"
   show (Halt)               = "  halt;"
 
 relocate_instruction :: Maybe Reg -> Maybe Label -> Instruction -> Instruction
@@ -211,7 +211,7 @@ relocate_instruction _ lb  (Goto l)               = Goto    (fromJust $ maybe_of
 relocate_instruction _ lb  (MkLabel l)            = MkLabel (fromJust $ maybe_offset lb $ Just l)
 relocate_instruction rb lb (If al relop ar lt lf) = If      (relocate_atom rb al) relop (relocate_atom rb ar)
                                                             (fromJust $ maybe_offset lb (Just lt)) (maybe_offset lb lf)
-relocate_instruction _ _   (PrintLn e)            = PrintLn e
+relocate_instruction rb _  (PrintLn r)            = PrintLn (fromJust $ maybe_offset rb $ Just r)
 relocate_instruction _ _   (Halt)                 = Halt
 
 -- Blocks
@@ -233,7 +233,7 @@ inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
 inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
                                   -- Use lf if not Nothing, otherwise use lt
-inst_blk (PrintLn a)            = ([PrintLn a],            Nothing,   Nothing)
+inst_blk (PrintLn r)            = ([PrintLn r],            Nothing,   Nothing)
 inst_blk (Halt)                 = ([Halt],                 Nothing,   Nothing)
 
 resequence :: [Blk] -> Blk
@@ -270,7 +270,7 @@ comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, le)) = s
                                          if_blk'                             = norelocate_concat [start_blk, if_blk, body_blk] in
                                        (,) vars $ norelocate_concat [if_blk', end_blk]
                                        -- Ignore the vars from body_blk as the variables alocated inside should not be propagated outward
-comp_stmt vars (Println exp)       = (,) vars $ inst_blk $ PrintLn exp
+comp_stmt vars (Println exp)       = second (\blk@(_, re, _) -> merge_blk blk $ inst_blk $ PrintLn $ fromJust re) $ comp_exp vars exp
 comp_stmt vars (Attr s exp)        = let (vars', blk@(_, rr, _)) = comp_exp vars exp in
                                        (,) vars' $ norelocate_concat $ [blk, inst_blk $ Store (fromJust rr) $ vars' ! s]
 
