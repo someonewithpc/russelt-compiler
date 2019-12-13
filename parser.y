@@ -13,6 +13,7 @@ import Data.List
   -- Literals and types
   int                                   { TokenInt _ $$ }
   bool                                  { TokenBool _ $$ }
+  string                                { TokenString _ $$ }
   tint                                  { TokenTInt _ $$ }
   tbool                                 { TokenTBool _ $$ }
   -- Symbols
@@ -105,6 +106,7 @@ Exp
     -- Value Expressions
     : int                                          { LitExp (VTInt $1 Ti32) }
     | bool                                         { LitExp (VTBool $1) }
+    | string                                       { LitExp (VTString $1) }
     | id                                           { Var $1 }
     -- Arithmetic Operators
     | Exp '+' Exp                                  { BinaryOp $1 "+" $3 }
@@ -181,6 +183,7 @@ instance Print Exp where
 instance Print ValueType where
   print_tree (VTInt i t)                = wrapped' $ show i ++ ": " ++ (tail (show t))
   print_tree (VTBool b)                 = wrapped' $ show b ++ ": bool"
+  print_tree (VTString b)               = wrapped' $ show b ++ ": string"
   print_tree _                          = undefined -- "UNDEFINED"
 
 printTree :: [Tree] -> String

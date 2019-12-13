@@ -29,6 +29,7 @@ tokens :-
     false                               { \p _ -> TokenBool p False }
     let                                 { \p _ -> TokenLet p }
     bool                                { \p s -> TokenTBool p Tbool }
+    \"(\\.|[^\\\"\n])*\"                { \p s -> TokenString p s }
     (i|u)(8|16|32|64|128|size)          { \p s -> TokenTInt p (read ('T' : s) :: Type) }
     -- Control flow
     if                                  { \p _ -> TokenIf p }
@@ -43,11 +44,13 @@ tokens :-
 data Type = Ti8 | Ti16 | Ti32 | Ti64 | Ti128 | Tisize
           | Tu8 | Tu16 | Tu32 | Tu64 | Tu128 | Tusize
           | Tbool
+          | Tstring
           | Tauto
           deriving (Show, Read)
 
 data ValueType = VTInt Int Type
                | VTBool Bool
+               | VTString String
                | VTAuto String
                deriving Show
 
@@ -55,8 +58,10 @@ data Token =
            -- Types and Variables
            TokenInt AlexPosn Int                     -- int value
            | TokenBool AlexPosn Bool                 -- bool value
+           | TokenString AlexPosn String             -- string value
            | TokenTInt AlexPosn Type                 -- int type
            | TokenTBool AlexPosn Type                -- bool type
+           | TokenTString AlexPosn                   -- string type
            -- Attributions
            | TokenLet AlexPosn                       -- let
            | TokenAtr AlexPosn                       -- =
@@ -94,6 +99,7 @@ data Token =
 
 token_pos (TokenInt p _) = p
 token_pos (TokenBool p _) = p
+token_pos (TokenString p _) = p
 token_pos (TokenTBool p _) = p
 token_pos (TokenTInt p _) = p
 token_pos (TokenLet p) = p

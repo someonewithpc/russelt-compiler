@@ -1,0 +1,4 @@
+fn main() {
+  let var = "hello, world.";
+  println!(var);
+}

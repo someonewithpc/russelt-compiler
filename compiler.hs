@@ -84,11 +84,14 @@ nextR r = r + 1
 data Atom = AVar String
           | AReg Reg
           | ANumber Int
+          | ABool Bool
+          | AString String
 
 instance Show Atom where
   show (AVar s) = s
   show (AReg r) = show r
   show (ANumber i) = show i
+  show (AString s) = s
 
 relocate_atom :: Reg -> Atom -> Atom
 relocate_atom l (AReg r) = AReg $ l + r
@@ -169,6 +172,7 @@ data Instruction = Unary Reg Atom
                  | Load Reg Addr
                  | Store Reg Addr
                  | If Atom RelOp Atom Label (Maybe Label)
+                 | PrintLn Reg Atom
 
 instance Show Instruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
@@ -177,6 +181,7 @@ instance Show Instruction where
   show (MkLabel l)          = show l ++ ":"
   show (Load r addr)        = "  load " ++ (show r) ++ " (" ++ (show addr) ++ ")"
   show (Store r addr)       = "  store " ++ (show r) ++ " (" ++ (show addr) ++ ")"
+  show (PrintLn r a)        = "  println " ++ (show r) ++ ":= " ++ (show a) ++ ";"
   show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
                               ++ " then\n  " ++ (show (Goto lt)) ++
                               (maybe "" (\jlf -> "\n  else\n  " ++ (show (Goto jlf))) lf)
@@ -184,6 +189,7 @@ instance Show Instruction where
 relocate_instruction :: Reg -> Label -> Instruction -> Instruction
 relocate_instruction rb _ (Unary r a)             = Unary (rb + r) (relocate_atom rb a)
 relocate_instruction rb _ (Binary r al numop ar)  = Binary (rb + r) (relocate_atom rb al) numop (relocate_atom rb ar)
+relocate_instruction rb _ (PrintLn r a)           = PrintLn (rb + r) (relocate_atom rb a)
 relocate_instruction rb lb (If al relop ar lt lf) = If (relocate_atom rb al) relop (relocate_atom rb ar)
                                                     (lb + lt) ((+ lb) <$> lf)
 relocate_instruction _ _ a                        = a
@@ -203,6 +209,7 @@ inst_block (Unary reg a)          = ([Unary reg a], reg, label0)
 inst_block (Binary reg al op ar)  = ([Binary reg al op ar], reg, label0)
 inst_block (Goto l)               = ([Goto l], reg0, label0)
 inst_block (MkLabel l)            = ([MkLabel l], reg0, l)
+inst_block (PrintLn reg a)        = ([PrintLn reg a], reg, label0)
 inst_block (If al relop ar lt lf) = ([If al relop ar lt lf],
                                      reg0,
                                      (fromMaybe lt lf)) -- Use lf if not Nothing, otherwise use lt
@@ -237,9 +244,12 @@ comp_stmt vars (Expression exp)  = comp_exp vars exp
 comp_stmt vars (VarDecl s exp _) = let ((Just addr), vars') = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
                                        (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
                                      (vars'', merge_block blk $ inst_block $ Store rr addr)
+comp_stmt vars (Println (LitExp (VTString s))) = (,) vars $ inst_block $ PrintLn reg0 (AString s)
 
 comp_exp :: Vars -> Exp -> (Vars, Block)
 comp_exp vars (LitExp (VTInt i _)) = (,) vars $ inst_block $ Unary reg0 (ANumber i)
+comp_exp vars (LitExp (VTBool b)) = (,) vars $ inst_block $ Unary reg0 (ABool b)
+comp_exp vars (LitExp (VTString s)) = (,) vars $ inst_block $ Unary reg0 (AString s)
 comp_exp vars (Var s)              = (,) vars $ inst_block $ Load reg0 (vars ! s)
 comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
                                          (vars'', blkr)              = comp_exp vars' er
