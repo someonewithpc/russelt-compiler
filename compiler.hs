@@ -270,8 +270,8 @@ comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, le)) = s
                                          if_blk                              = inst_blk (If (AReg $ fromMaybe 0 exp_res) Equal (ANumber 0) end_label' Nothing)
                                          if_blk'                             = norelocate_concat [start_blk, if_blk, body_blk] in
                                        (,) vars $ norelocate_concat [if_blk', end_blk]
-comp_stmt vars (Println exp) = (,) vars $ inst_blk $ PrintLn exp
                                        -- Ignore the vars from body_blk as the variables alocated inside should not be propagated outward
+comp_stmt vars (Println exp)       = (,) vars $ inst_blk $ PrintLn exp
 
 
 
