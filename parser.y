@@ -72,6 +72,7 @@ Rust : FuncDecl Rust                               { $1 : $2 }
 Statement : ExpSemi                                { Expression $1 }
           | let id '=' ExpSemi                     { VarDecl $2 $4 Tauto }
           | let id ':' Type '=' ExpSemi            { VarDecl $2 $6 $4 }
+          | id '=' ExpSemi                         { Attr $1 $3 }
           | While                                  { $1 }
           | Println ';'                            { $1 }
 
@@ -143,6 +144,7 @@ data Exp = LitExp ValueType
 
 data Statement = Expression Exp
                | VarDecl String Exp Type
+               | Attr String Exp
                | WhileStmt Exp [Statement]
                | Println Exp
 

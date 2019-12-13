@@ -1,13 +1,12 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module Main where
-import Data.List
 import Scanner
 import Parser
 import Options.Applicative
 import Data.Monoid ((<>))
 import Data.Maybe
-import Data.Map.Strict as Map (singleton, updateLookupWithKey, (!), Map)
+import Data.Map.Strict as Map (singleton, insert, updateLookupWithKey, (!), Map)
 import Control.Monad
 import Data.Bifunctor
 
@@ -170,6 +169,12 @@ instance Read Op where
   readsPrec _ ('>':rest)      = [(Gt, rest)]
   readsPrec _ _               = error "Invalid character to make an `Op`"
 
+-- Map
+
+type Vars = Map String Addr
+variable_address_index = "__variable_address_index"
+variables = singleton variable_address_index 0 :: Vars
+
 -- Instructions
 
 type Addr = Int
@@ -242,12 +247,6 @@ norelocate_concat ((ins, _, _) : blks) = (ins ++ insr, rr, lr) where (insr, rr, 
 norelocate_append :: Blk -> [Blk] -> Blk
 norelocate_append blkl blksr = norelocate_concat (blkl : blksr)
 
--- Map
-
-type Vars = Map String Addr
-variable_address_index = "__variable_address_index"
-variables = singleton variable_address_index 0 :: Vars
-
 -- Compiling
 
 compile :: Vars -> [Tree] -> (Vars, Blk)
@@ -260,9 +259,8 @@ comp_tree vars (Statements sts)    = second resequence $ foldl_with_map vars com
 
 comp_stmt :: Vars -> Statement -> (Vars, Blk)
 comp_stmt vars (Expression exp)    = comp_exp vars exp
-comp_stmt vars (VarDecl s exp _)   = let ((Just addr), vars') =
-                                           updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
-                                         (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
+comp_stmt vars (VarDecl s exp _)   = let (Just addr, vars') = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
+                                         (vars'', blk@(_, rr, _)) = first (insert s addr) $ comp_exp vars' exp in
                                        (vars'', norelocate_append blk [(inst_blk $ Store (fromMaybe 0 rr) addr)])
 comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, le)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp vars exp
                                          (_, body_blk@(_, _, end_label))     = second (relocate_block (succ <$> exp_res) le) $ comp_tree vars' (Statements sts)
@@ -273,6 +271,8 @@ comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, le)) = s
                                        (,) vars $ norelocate_concat [if_blk', end_blk]
                                        -- Ignore the vars from body_blk as the variables alocated inside should not be propagated outward
 comp_stmt vars (Println exp)       = (,) vars $ inst_blk $ PrintLn exp
+comp_stmt vars (Attr s exp)        = let (vars', blk@(_, rr, _)) = comp_exp vars exp in
+                                       (,) vars' $ norelocate_concat $ [blk, inst_blk $ Store (fromJust rr) $ vars' ! s]
 
 
 
