@@ -13,7 +13,7 @@ parser.hs : parser.y
 	happy --info -o parser.hs parser.y
 
 
-$(PROGRAM): $(INTERM)
+$(PROGRAM): $(INTERM) compiler.hs
 	ghc -dynamic -o $(PROGRAM) $(INTERM) compiler.hs
 clean:
 	rm -f $(PROGRAM) $(INTERM) $(OBJS)
