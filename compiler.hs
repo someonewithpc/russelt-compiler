@@ -7,7 +7,11 @@ import Parser
 import Options.Applicative
 import Data.Monoid ((<>))
 import Data.Maybe
+import Data.Map.Strict as Map (singleton, updateLookupWithKey, (!), Map)
 import Control.Monad
+import Data.Bifunctor
+
+-- Argument parsing
 
 data Flag = Flag
   {
@@ -130,33 +134,40 @@ instance Read RelOp where
 
 -- Label
 
-data Label = Label Integer
+data Label = LabelI Integer | LabelS String
 
-label0 = Label 0
-label1 = Label 1
+label0 = LabelI 0
+label1 = LabelI 1
 
 instance Show Label where
-  show (Label l) = "label" ++ (show l)
+  show (LabelI l) = "label" ++ (show l)
+  show (LabelS s) = s
 
 instance Num Label where
-  (Label l) + (Label r) = Label $ l + r
-  (Label l) - (Label r)
-    | l >= r            = Label $ l - r
-    | otherwise         = undefined
-  fromInteger i         = (Label i)
-  (*)                   = undefined
-  abs                   = undefined
-  signum                = undefined
+  (LabelI l) + (LabelI r) = LabelI $ l + r
+  _ + _                   = error "Cannot add string labels"
+  (LabelI l) - (LabelI r)
+    | l >= r              = LabelI $ l - r
+    | otherwise           = undefined
+  _ - _                   = error "Cannot substract string labels"
+  fromInteger i           = (LabelI i)
+  (*)                     = undefined
+  abs                     = undefined
+  signum                  = undefined
 
 nextL :: Label -> Label
 nextL l = l + 1
 
 -- Instructions
 
+type Addr = Int
+
 data Instruction = Unary Reg Atom
                  | Binary Reg Atom NumOp Atom
                  | Goto Label
                  | MkLabel Label
+                 | Load Reg Addr
+                 | Store Reg Addr
                  | If Atom RelOp Atom Label (Maybe Label)
 
 instance Show Instruction where
@@ -164,12 +175,17 @@ instance Show Instruction where
   show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
   show (Goto l)             = "  goto " ++ show l
   show (MkLabel l)          = show l ++ ":"
-  show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar) ++ " then\n  " ++ (show (Goto lt)) ++ (maybe "" (\_ -> "\n  else\n  " ++ (show (Goto (fromJust lf)))) lf)
+  show (Load r addr)        = "  load " ++ (show r) ++ " (" ++ (show addr) ++ ")"
+  show (Store r addr)       = "  store " ++ (show r) ++ " (" ++ (show addr) ++ ")"
+  show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
+                              ++ " then\n  " ++ (show (Goto lt)) ++
+                              (maybe "" (\jlf -> "\n  else\n  " ++ (show (Goto jlf))) lf)
 
 relocate_instruction :: Reg -> Label -> Instruction -> Instruction
 relocate_instruction rb _ (Unary r a)             = Unary (rb + r) (relocate_atom rb a)
 relocate_instruction rb _ (Binary r al numop ar)  = Binary (rb + r) (relocate_atom rb al) numop (relocate_atom rb ar)
-relocate_instruction rb lb (If al relop ar lt lf) = If (relocate_atom rb al) relop (relocate_atom rb ar) (lb + lt) (liftM (+ lb) lf)
+relocate_instruction rb lb (If al relop ar lt lf) = If (relocate_atom rb al) relop (relocate_atom rb ar)
+                                                    (lb + lt) ((+ lb) <$> lf)
 relocate_instruction _ _ a                        = a
 
 -- Blocks
@@ -187,29 +203,50 @@ inst_block (Unary reg a)          = ([Unary reg a], reg, label0)
 inst_block (Binary reg al op ar)  = ([Binary reg al op ar], reg, label0)
 inst_block (Goto l)               = ([Goto l], reg0, label0)
 inst_block (MkLabel l)            = ([MkLabel l], reg0, l)
-inst_block (If al relop ar lt lf) = ([If al relop ar lt lf], reg0, (fromMaybe lt lf)) -- Use lf if not Nothing, otherwise use lt
+inst_block (If al relop ar lt lf) = ([If al relop ar lt lf],
+                                     reg0,
+                                     (fromMaybe lt lf)) -- Use lf if not Nothing, otherwise use lt
 
 resequence :: [Block] -> Block
 resequence (blk : blks) = foldl merge_block blk blks
 
+-- Map
+
+type Vars = Map String Addr
+variable_address_index = "__variable_address_index"
+variables = singleton variable_address_index 0 :: Vars
+
 -- Compiling
 
-compile :: [Tree] -> Block
-compile t = resequence $ map comp_tree t
+compile :: Vars -> [Tree] -> (Vars, Block)
+compile vars t = second resequence $ foldlWithMap vars comp_tree t
+-- resequence $ map (comp_tree vars) t
 
-comp_tree :: Tree -> Block
-comp_tree (FuncDecl name st) = undefined
-comp_tree (Statements sts)   = resequence $ map comp_stmt sts
+comp_tree :: Vars -> Tree -> (Vars, Block)
+comp_tree vars (FuncDecl name sts) = let blk = inst_block (MkLabel (LabelS name)) in
+                                       second (resequence . (blk :)) $ foldlWithMap vars comp_stmt sts
+comp_tree vars (Statements sts)    = second resequence $ foldlWithMap vars comp_stmt sts
 
-comp_stmt :: Statement -> Block
-comp_stmt (Expression exp) = comp_exp exp
+foldlWithMap :: Vars -> (Vars -> a -> (Vars, b)) -> [a] -> (Vars, [b])
+foldlWithMap vars f (x:xs) = let (vars', xres) = f vars x in
+                               second ((:) xres) (foldlWithMap vars' f xs)
+foldlWithMap vars _ []     = (vars, [])
 
-comp_exp :: Exp -> Block
-comp_exp (LitExp (VTInt i _))  = inst_block $ Unary reg0 (ANumber i)
-comp_exp (Var s)               = inst_block $ Unary reg0 (AVar s)
-comp_exp (BinaryOp el so er)   = let blkl@(insl, rl, _) = comp_exp el
-                                     (insr, rr, lr) = merge_block blkl (comp_exp er) in
-                                   (insr ++ [Binary (nextR rr) (AReg rl) (read so :: NumOp) (AReg rr)], (nextR rr), (nextL lr))
+comp_stmt :: Vars -> Statement -> (Vars, Block)
+comp_stmt vars (Expression exp)  = comp_exp vars exp
+comp_stmt vars (VarDecl s exp _) = let ((Just addr), vars') = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
+                                       (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
+                                     (vars'', merge_block blk $ inst_block $ Store rr addr)
+
+comp_exp :: Vars -> Exp -> (Vars, Block)
+comp_exp vars (LitExp (VTInt i _)) = (,) vars $ inst_block $ Unary reg0 (ANumber i)
+comp_exp vars (Var s)              = (,) vars $ inst_block $ Load reg0 (vars ! s)
+comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
+                                         (vars'', blkr)              = comp_exp vars' er
+                                         (insr, rr, lr)              = merge_block blkl blkr in
+                                       (,) vars'' (insr ++ [Binary (nextR rr) (AReg rl) (read so :: NumOp) (AReg rr)],
+                                                     (nextR rr),
+                                                     (nextL lr))
 
 
 
@@ -222,7 +259,7 @@ main = do
   -- Process --
   let token_list = scan_tokens raw_input
   let parse_tree = parse token_list
-  let (compile_result, _, _) = compile parse_tree
+  let (_, (compile_result, _, _)) = compile variables parse_tree
 
   -- Output --
   if (print_token_list args) then

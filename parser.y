@@ -65,10 +65,8 @@ import Data.List
 %left '='
 
 %%
--- Rust : FuncDecl Rust                               { $1 : $2 }
---      | {- empty -}                                 { [] }
-
-Rust : Exp                                         { [Statements [Expression $1]] }
+Rust : FuncDecl Rust                               { $1 : $2 }
+     | {- empty -}                                 { [] }
 
 Statement : ExpSemi                                { Expression $1 }
           | let id '=' ExpSemi                     { VarDecl $2 $4 Tauto }
