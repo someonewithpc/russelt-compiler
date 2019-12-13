@@ -73,11 +73,12 @@ instance Num Reg where
   abs                           = undefined
   signum                        = undefined
 
+instance Enum Reg where
+  toEnum i = Reg (toInteger i)
+  fromEnum (Reg i) = fromIntegral i
+
 reg0 = Reg 0
 reg1 = Reg 1
-
-nextR :: Reg -> Reg
-nextR r = r + 1
 
 -- Atoms
 
@@ -155,8 +156,10 @@ instance Num Label where
   abs                     = undefined
   signum                  = undefined
 
-nextL :: Label -> Label
-nextL l = l + 1
+instance Enum Label where
+  toEnum i = LabelI (toInteger i)
+  fromEnum (LabelI i) = fromIntegral i
+  fromEnum _ = undefined
 
 -- Instructions
 
@@ -196,7 +199,7 @@ relocate_block :: Reg -> Label -> Block -> Block
 relocate_block rb lb (ins, rr, lr) = (map (relocate_instruction rb lb) ins, (rb + rr), (lb + lr))
 
 merge_block :: Block -> Block -> Block
-merge_block (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = relocate_block (nextR rl) ll blkr
+merge_block (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = relocate_block (succ rl) ll blkr
 
 inst_block :: Instruction -> Block
 inst_block (Unary reg a)          = ([Unary reg a], reg, label0)
@@ -233,10 +236,16 @@ foldlWithMap vars f (x:xs) = let (vars', xres) = f vars x in
 foldlWithMap vars _ []     = (vars, [])
 
 comp_stmt :: Vars -> Statement -> (Vars, Block)
-comp_stmt vars (Expression exp)  = comp_exp vars exp
-comp_stmt vars (VarDecl s exp _) = let ((Just addr), vars') = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
-                                       (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
-                                     (vars'', merge_block blk $ inst_block $ Store rr addr)
+comp_stmt vars (Expression exp)    = comp_exp vars exp
+comp_stmt vars (VarDecl s exp _)   = let ((Just addr), vars') =
+                                           updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
+                                         (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
+                                       (vars'', merge_block blk $ inst_block $ Store rr addr)
+comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, _)) = second (merge_block (inst_block $ MkLabel label0)) $ comp_exp vars exp
+                                         (vars'', body_blk)                 = comp_tree vars' (Statements sts)
+                                         end_blk@(_, _, end_label)          = merge_block body_blk (inst_block $ MkLabel label1)
+                                         if_blk                             = inst_block (If (AReg exp_res) Equal (ANumber 0) end_label Nothing) in
+                                       (,) vars'' $ resequence [start_blk, if_blk, body_blk, end_blk]
 
 comp_exp :: Vars -> Exp -> (Vars, Block)
 comp_exp vars (LitExp (VTInt i _)) = (,) vars $ inst_block $ Unary reg0 (ANumber i)
@@ -244,9 +253,9 @@ comp_exp vars (Var s)              = (,) vars $ inst_block $ Load reg0 (vars ! s
 comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
                                          (vars'', blkr)              = comp_exp vars' er
                                          (insr, rr, lr)              = merge_block blkl blkr in
-                                       (,) vars'' (insr ++ [Binary (nextR rr) (AReg rl) (read so :: NumOp) (AReg rr)],
-                                                     (nextR rr),
-                                                     (nextL lr))
+                                       (,) vars'' (insr ++ [Binary (succ rr) (AReg rl) (read so :: NumOp) (AReg rr)],
+                                                     (succ rr),
+                                                     (succ lr))
 
 
 
