@@ -10,3 +10,4 @@ scanner.info
 compiler
 compiler.hi
 compiler.o
+*.asm

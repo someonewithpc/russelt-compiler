@@ -142,26 +142,15 @@ relocate_atom _ a = a
 
 -- Operators
 
-data NumOp = Plus | Minus | Div | Mult | Rem
+data Op = Plus | Minus | Div | Mult | Rem
+        | Equal | Diff | Lt | Gt | Le | Ge
 
-instance Show NumOp where
+instance Show Op where
   show Plus  = "+"
   show Minus = "-"
   show Div   = "/"
   show Mult  = "*"
   show Rem   = "%"
-
-instance Read NumOp where
-  readsPrec _ ('+':rest) = [(Plus, rest)]
-  readsPrec _ ('-':rest) = [(Minus, rest)]
-  readsPrec _ ('*':rest) = [(Mult, rest)]
-  readsPrec _ ('/':rest) = [(Div, rest)]
-  readsPrec _ ('%':rest) = [(Rem, rest)]
-  readsPrec _ _          = error "Invalid character to make an `NumOp`"
-
-data RelOp = Equal | Diff | Lt | Gt | Le | Ge
-
-instance Show RelOp where
   show Equal  = "=="
   show Diff   = "!="
   show Le     = "<="
@@ -169,26 +158,31 @@ instance Show RelOp where
   show Lt     = "<"
   show Gt     = ">"
 
-instance Read RelOp where
-  readsPrec _ (c:'=':rest) | c == '<' = [(Le, rest)]
-                           | c == '>' = [(Ge, rest)]
-                           | c == '=' = [(Equal, rest)]
-                           | c == '!' = [(Diff, rest)]
-  readsPrec _ ('<':rest)              = [(Lt, rest)]
-  readsPrec _ ('>':rest)              = [(Gt, rest)]
-  readsPrec _ _                       = error "Invalid character to make an `RelOp`"
+instance Read Op where
+  readsPrec _ ('+':rest)      = [(Plus, rest)]
+  readsPrec _ ('-':rest)      = [(Minus, rest)]
+  readsPrec _ ('*':rest)      = [(Mult, rest)]
+  readsPrec _ ('/':rest)      = [(Div, rest)]
+  readsPrec _ ('%':rest)      = [(Rem, rest)]
+  readsPrec _ ('<':'=':rest)  = [(Le, rest)]
+  readsPrec _ ('>':'=':rest)  = [(Ge, rest)]
+  readsPrec _ ('=':'=':rest)  = [(Equal, rest)]
+  readsPrec _ ('!':'=':rest)  = [(Diff, rest)]
+  readsPrec _ ('<':rest)      = [(Lt, rest)]
+  readsPrec _ ('>':rest)      = [(Gt, rest)]
+  readsPrec _ _               = error "Invalid character to make an `Op`"
 
 -- Instructions
 
 type Addr = Int
 
 data Instruction = Unary Reg Atom
-                 | Binary Reg Atom NumOp Atom
+                 | Binary Reg Atom Op Atom
                  | Load Reg Addr
                  | Store Reg Addr
                  | Goto Label
                  | MkLabel Label
-                 | If Atom RelOp Atom Label (Maybe Label)
+                 | If Atom Op Atom Label (Maybe Label)
                  | PrintLn Exp
 
 instance Show Instruction where
@@ -233,7 +227,7 @@ inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
 inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
 inst_blk (PrintLn a)            = ([PrintLn a],       (Nothing), Nothing)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
-                                    -- Use lf if not Nothing, otherwise use lt
+                                  -- Use lf if not Nothing, otherwise use lt
 
 resequence :: [Blk] -> Blk
 resequence (blk : blks) = foldl merge_blk blk blks
@@ -278,7 +272,7 @@ comp_exp vars (Var s)              = (,) vars $ inst_blk $ Load reg0 (vars ! s)
 comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
                                          (vars'', blkr)              = comp_exp vars' er
                                          (insr, rr, lr)              = merge_blk blkl blkr in
-                                       (,) vars'' (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: NumOp) (AReg $ fromJust rr)],
+                                       (,) vars'' (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: Op) (AReg $ fromJust rr)],
                                                    (succ <$> rr),
                                                    (succ <$> lr))
 comp_exp vars (IfExp exp true false) = let (vars', eval_blk@(_, er, _))     = comp_exp vars exp
@@ -286,7 +280,7 @@ comp_exp vars (IfExp exp true false) = let (vars', eval_blk@(_, er, _))     = co
                                            (_, false_blk@(ins_fa, rf, _))   = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ comp_tree vars' (Statements false)
                                            true_blk'                        = maybe true_blk  (\trt -> (ins_tr ++ [Unary reg0 (AReg trt)], Just reg0, Nothing)) rt
                                            false_blk'                       = maybe false_blk (\trf -> (ins_fa ++ [Unary reg0 (AReg trf)], Just reg0, Nothing)) rf
-                                           if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 llt in
+                                           if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 (succ <$> llt) in
                                          (,) vars $ resequence [eval_blk, if_blk, true_blk', false_blk']
 
 
