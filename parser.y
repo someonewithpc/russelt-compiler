@@ -90,9 +90,9 @@ FuncDecl : fn id '(' ')' Block                     { FuncDecl $2 $5 }
 Println : println '(' Exp ')'                      { Println $3 }
 Readline : read_line '(' ')'                       { Readline }
 
-If : if Exp IfBlock                                { IfStmt $2 $3 [] }
-   | if Exp IfBlock else IfBlock                   { IfStmt $2 $3 $5 }
-   | if Exp IfBlock else If                        { IfStmt $2 $3 [Expression $5] }
+If : if Exp IfBlock                                { IfExp $2 $3 [] }
+   | if Exp IfBlock else IfBlock                   { IfExp $2 $3 $5 }
+   | if Exp IfBlock else If                        { IfExp $2 $3 [Expression $5] }
 
 IfBlock : '{' Statements '}'                       { $2 }
         | '{' Exp '}'                              { [Expression $2] }
@@ -138,7 +138,7 @@ data Exp = LitExp ValueType
          | Var String
          | BinaryOp Exp String Exp
          | UnaryOp String Exp
-         | IfStmt Exp [Statement] [Statement]
+         | IfExp Exp [Statement] [Statement]
          | Readline
 
 data Statement = Expression Exp
@@ -175,8 +175,8 @@ instance Print Exp where
   print_tree (Var str)                  = "variable " ++ (show str)
   print_tree (BinaryOp exp1 str exp2)   = (print_tree exp1) ++ " " ++ str ++ " " ++ (print_tree exp2)
   print_tree (UnaryOp str exp)          = str ++ (print_tree exp)
-  print_tree (IfStmt exp stmt [])       = "if cond: [" ++ print_tree exp ++ "] " ++ (padded_print stmt)
-  print_tree (IfStmt exp stmt1 stmt2)   = "if cond: [" ++ print_tree exp ++ "] " ++ (padded_print stmt1) ++
+  print_tree (IfExp exp stmt [])       = "if cond: [" ++ print_tree exp ++ "] " ++ (padded_print stmt)
+  print_tree (IfExp exp stmt1 stmt2)   = "if cond: [" ++ print_tree exp ++ "] " ++ (padded_print stmt1) ++
                                               " else: " ++ (padded_print stmt2)
   print_tree (Readline)                 = "call read_line"
 
