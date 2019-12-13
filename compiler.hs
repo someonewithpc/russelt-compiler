@@ -183,7 +183,6 @@ data Instruction = Unary Reg Atom
                  | Binary Reg Atom NumOp Atom
                  | Load Reg Addr
                  | Store Reg Addr
-                 | Move Reg Reg
                  | Goto Label
                  | MkLabel Label
                  | If Atom RelOp Atom Label (Maybe Label)
@@ -193,7 +192,6 @@ instance Show Instruction where
   show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
   show (Load r addr)        = "  load " ++ (show r) ++ " (" ++ (show addr) ++ ")"
   show (Store r addr)       = "  store " ++ (show r) ++ " (" ++ (show addr) ++ ")"
-  show (Move t f)           = "  move " ++ (show t) ++ "<- " ++ (show f)
   show (Goto l)             = "  goto " ++ show l
   show (MkLabel l)          = show l ++ ":"
   show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
@@ -205,7 +203,6 @@ relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_of
 relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
 relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) a
 relocate_instruction rb _  (Store r a)            = Store   (fromJust $ maybe_offset rb $ Just r) a
-relocate_instruction rb _  (Move t f)             = Move    (fromJust $ maybe_offset rb $ Just t) (fromJust $ maybe_offset rb (Just f))
 relocate_instruction _ lb  (Goto l)               = Goto    (fromJust $ maybe_offset lb $ Just l)
 relocate_instruction _ lb  (MkLabel l)            = MkLabel (fromJust $ maybe_offset lb $ Just l)
 relocate_instruction rb lb (If al relop ar lt lf) = If      (relocate_atom rb al) relop (relocate_atom rb ar)
@@ -226,7 +223,6 @@ inst_blk (Unary reg a)          = ([Unary reg a],         (Just reg), Nothing)
 inst_blk (Binary reg al op ar)  = ([Binary reg al op ar], (Just reg), Nothing)
 inst_blk (Load reg addr)        = ([Load reg addr],       (Just reg), Nothing)
 inst_blk (Store reg addr)       = ([Store reg addr],      (Just reg), Nothing)
-inst_blk (Move t f)             = ([Move t f],            (Just t),   Nothing)
 inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
 inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
@@ -278,8 +274,8 @@ comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp 
 comp_exp vars (IfExp exp true false) = let (vars', eval_blk@(_, er, _))     = comp_exp vars exp
                                            (_,  true_blk@(ins_tr, rt, llt)) = second (merge_blk $ inst_blk $ MkLabel label0)               $ comp_tree vars' (Statements true)
                                            (_, false_blk@(ins_fa, rf, _))   = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ comp_tree vars' (Statements false)
-                                           true_blk'                        = maybe true_blk  (\trt -> (ins_tr ++ [Move reg0 trt], Just reg0, Nothing)) rt
-                                           false_blk'                       = maybe false_blk (\trf -> (ins_fa ++ [Move reg0 trf], Just reg0, Nothing)) rf
+                                           true_blk'                        = maybe true_blk  (\trt -> (ins_tr ++ [Unary reg0 (AReg trt)], Just reg0, Nothing)) rt
+                                           false_blk'                       = maybe false_blk (\trf -> (ins_fa ++ [Unary reg0 (AReg trf)], Just reg0, Nothing)) rf
                                            if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 llt in
                                          (,) vars $ resequence [eval_blk, if_blk, true_blk', false_blk']
 
