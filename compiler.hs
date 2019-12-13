@@ -189,14 +189,14 @@ data Instruction = Unary Reg Atom
                  | Goto Label
                  | MkLabel Label
                  | If Atom RelOp Atom Label (Maybe Label)
-                 | PrintLn Reg Atom
+                 | PrintLn Exp
 
 instance Show Instruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
   show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
   show (Load r addr)        = "  load " ++ (show r) ++ " (" ++ (show addr) ++ ")"
   show (Store r addr)       = "  store " ++ (show r) ++ " (" ++ (show addr) ++ ")"
-  show (PrintLn r a)        = "  println " ++ (show r) ++ ":= " ++ (show a) ++ ";"
+  show (PrintLn e)          = "  println " ++ ":= " ++ (print_tree e) ++ ";"
   show (Goto l)             = "  goto " ++ show l
   show (MkLabel l)          = show l ++ ":"
   show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
@@ -205,8 +205,8 @@ instance Show Instruction where
 
 relocate_instruction :: Maybe Reg -> Maybe Label -> Instruction -> Instruction
 relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
+relocate_instruction _ _   (PrintLn e)            = PrintLn e
 relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
-relocate_instruction rb _  (PrintLn r a)          = PrintLn (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) a
 relocate_instruction rb _  (Store r a)            = Store   (fromJust $ maybe_offset rb $ Just r) a
 relocate_instruction _ lb  (Goto l)               = Goto    (fromJust $ maybe_offset lb $ Just l)
@@ -231,7 +231,7 @@ inst_blk (Load reg addr)        = ([Load reg addr],       (Just reg), Nothing)
 inst_blk (Store reg addr)       = ([Store reg addr],      (Just reg), Nothing)
 inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
 inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
-inst_blk (PrintLn reg a)        = ([PrintLn reg a],       (Just reg), Nothing)
+inst_blk (PrintLn a)            = ([PrintLn a],       (Nothing), Nothing)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
                                     -- Use lf if not Nothing, otherwise use lt
 
@@ -260,7 +260,7 @@ comp_stmt vars (VarDecl s exp _)   = let ((Just addr), vars') =
                                            updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
                                          (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
                                        (vars'', merge_blk blk $ inst_blk $ Store (fromMaybe 0 rr) addr)
-comp_stmt vars (Println (LitExp (VTString s))) = (,) vars $ inst_blk $ PrintLn reg0 (AString s)
+comp_stmt vars (Println exp) = (,) vars $ inst_blk $ PrintLn exp
 comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, _)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp vars exp
                                          (_, body_blk)                      = comp_tree vars' (Statements sts)
                                          end_blk@(_, _, end_label)          = merge_blk body_blk (inst_blk $ MkLabel label1)
