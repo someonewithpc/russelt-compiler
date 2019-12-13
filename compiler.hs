@@ -210,22 +210,30 @@ relocate_instruction rb lb (If al relop ar lt lf) = If      (relocate_atom rb al
 
 -- Blocks
 
-type Block = ([Instruction], (Maybe Reg), (Maybe Label))
+newtype Block = Block ([Instruction], (Maybe Reg), (Maybe Label))
+  deriving Show
 
-relocate_block :: Maybe Reg -> Maybe Label -> Block -> Block
-relocate_block rb lb (ins, rr, lr) = (map (relocate_instruction rb lb) ins, (maybe_offset rb rr), (maybe_offset lb lr))
+instance Semigroup Block where
+  (<>) = merge_blk
+
+instance Monoid Block where
+  mempty = Block ([], Nothing, Nothing)
+  mappend l r = merge_blk l r
+
+relocate_blk :: Maybe Reg -> Maybe Label -> Block -> Block
+relocate_blk rb lb (Block (ins, rr, lr)) = Block (map (relocate_instruction rb lb) ins, (maybe_offset rb rr), (maybe_offset lb lr))
 
 merge_blk :: Block -> Block -> Block
-merge_blk (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = relocate_block (succ <$> rl) ll blkr
+merge_blk (Block (insl, rl, ll)) blkr = Block (insl ++ insr, rr, lr) where Block (insr, rr, lr) = relocate_blk (succ <$> rl) ll blkr
 
 inst_blk :: Instruction -> Block
-inst_blk (Unary reg a)          = ([Unary reg a],         (Just reg), Nothing)
-inst_blk (Binary reg al op ar)  = ([Binary reg al op ar], (Just reg), Nothing)
-inst_blk (Load reg addr)        = ([Load reg addr],       (Just reg), Nothing)
-inst_blk (Store reg addr)       = ([Store reg addr],      (Just reg), Nothing)
-inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
-inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
-inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
+inst_blk (Unary reg a)          = Block ([Unary reg a],         (Just reg), Nothing)
+inst_blk (Binary reg al op ar)  = Block ([Binary reg al op ar], (Just reg), Nothing)
+inst_blk (Load reg addr)        = Block ([Load reg addr],       (Just reg), Nothing)
+inst_blk (Store reg addr)       = Block ([Store reg addr],      (Just reg), Nothing)
+inst_blk (Goto l)               = Block ([Goto l],               Nothing,   Nothing)
+inst_blk (MkLabel l)            = Block ([MkLabel l],            Nothing,   Just l)
+inst_blk (If al relop ar lt lf) = Block ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
                                     -- Use lf if not Nothing, otherwise use lt
 
 resequence :: [Block] -> Block
@@ -251,33 +259,33 @@ comp_stmt :: Vars -> Statement -> (Vars, Block)
 comp_stmt vars (Expression exp)    = comp_exp vars exp
 comp_stmt vars (VarDecl s exp _)   = let ((Just addr), vars') =
                                            updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
-                                         (vars'', blk@(_, rr, _)) = comp_exp vars' exp in
-                                       (vars'', merge_blk blk $ inst_blk $ Store (fromMaybe 0 rr) addr)
-comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, _)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp vars exp
-                                         (_, body_blk)                      = comp_tree vars' (Statements sts)
-                                         end_blk@(_, _, end_label)          = merge_blk body_blk (inst_blk $ MkLabel label1)
-                                         if_blk                             = inst_blk (If (AReg $ fromMaybe 0 exp_res) Equal (ANumber 0) (fromJust end_label) Nothing) in
+                                         (vars'', Block blk@(_, rr, _)) = comp_exp vars' exp in
+                                       (vars'', merge_blk (Block blk) $ inst_blk $ Store (fromMaybe 0 rr) addr)
+comp_stmt vars (WhileStmt exp sts) = let (vars', Block start_blk@(_, exp_res, _)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp vars exp
+                                         (_, Block body_blk)                      = comp_tree vars' (Statements sts)
+                                         Block end_blk@(_, _, end_label)          = merge_blk (Block body_blk) (inst_blk $ MkLabel label1)
+                                         Block if_blk                             = inst_blk (If (AReg $ fromMaybe 0 exp_res) Equal (ANumber 0) (fromJust end_label) Nothing) in
                                        -- Ignore the vars from body_blk as the variables alocated inside should not be propagated outward
-                                       (,) vars $ resequence [start_blk, if_blk, body_blk, end_blk]
+                                       (,) vars $ resequence $ map Block [start_blk, if_blk, body_blk, end_blk]
 
 
 
 comp_exp :: Vars -> Exp -> (Vars, Block)
 comp_exp vars (LitExp (VTInt i _)) = (,) vars $ inst_blk $ Unary reg0 (ANumber i)
 comp_exp vars (Var s)              = (,) vars $ inst_blk $ Load reg0 (vars ! s)
-comp_exp vars (BinaryOp el so er)  = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
-                                         (vars'', blkr)              = comp_exp vars' er
-                                         (insr, rr, lr)              = merge_blk blkl blkr in
-                                       (,) vars'' (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: NumOp) (AReg $ fromJust rr)],
-                                                   (succ <$> rr),
-                                                   (succ <$> lr))
-comp_exp vars (IfExp exp true false) = let (vars', eval_blk@(_, er, _))     = comp_exp vars exp
-                                           (_,  true_blk@(ins_tr, rt, llt)) = second (merge_blk $ inst_blk $ MkLabel label0)               $ comp_tree vars' (Statements true)
-                                           (_, false_blk@(ins_fa, rf, _))   = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ comp_tree vars' (Statements false)
-                                           true_blk'                        = maybe true_blk  (\trt -> (ins_tr ++ [Unary reg0 (AReg trt)], Just reg0, Nothing)) rt
-                                           false_blk'                       = maybe false_blk (\trf -> (ins_fa ++ [Unary reg0 (AReg trf)], Just reg0, Nothing)) rf
-                                           if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 llt in
-                                         (,) vars $ resequence [eval_blk, if_blk, true_blk', false_blk']
+comp_exp vars (BinaryOp el so er)  = let (vars', Block blkl@(insl, rl, _)) = comp_exp vars el
+                                         (vars'', Block blkr)              = comp_exp vars' er
+                                         Block (insr, rr, lr)              = merge_blk (Block blkl) (Block blkr) in
+                                       (,) vars'' $ Block (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: NumOp) (AReg $ fromJust rr)],
+                                                           (succ <$> rr),
+                                                           (succ <$> lr))
+comp_exp vars (IfExp exp true false) = let (vars', Block eval_blk@(_, er, _))     = comp_exp vars exp
+                                           (_,  Block true_blk@(ins_tr, rt, llt)) = second (merge_blk $ inst_blk $ MkLabel label0)               $ comp_tree vars' (Statements true)
+                                           (_, Block false_blk@(ins_fa, rf, _))   = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ comp_tree vars' (Statements false)
+                                           Block true_blk'                        = maybe (Block true_blk)  (\trt -> Block (ins_tr ++ [Unary reg0 (AReg trt)], Just reg0, Nothing)) rt
+                                           Block false_blk'                       = maybe (Block false_blk) (\trf -> Block (ins_fa ++ [Unary reg0 (AReg trf)], Just reg0, Nothing)) rf
+                                           Block if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 llt in
+                                         (,) vars $ resequence $ map Block [eval_blk, if_blk, true_blk', false_blk']
 
 
 
@@ -290,7 +298,7 @@ main = do
   -- Process --
   let token_list = scan_tokens raw_input
   let parse_tree = parse token_list
-  let (_, (compile_result, _, _)) = compile variables parse_tree
+  let (_, Block (compile_result, _, _)) = compile variables parse_tree
 
   -- Output --
   if (print_token_list args) then
