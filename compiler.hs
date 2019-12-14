@@ -6,16 +6,16 @@ import Parser
 import Options.Applicative
 import Data.Monoid ((<>))
 import Data.Maybe
-import Data.Map.Strict as Map (singleton, insert, updateLookupWithKey, (!), Map)
+import Data.Map.Strict as Map (singleton, empty, insert, updateLookupWithKey, (!), Map)
 import Control.Monad
 import Data.Bifunctor
 
 -- Utils
 
-foldl_with_map :: Vars -> (Vars -> a -> (Vars, b)) -> [a] -> (Vars, [b])
-foldl_with_map vars f (x:xs) = let (vars', xres) = f vars x in
-                               second ((:) xres) (foldl_with_map vars' f xs)
-foldl_with_map vars _ []     = (vars, [])
+foldl_with_map :: State -> (State -> a -> (State, b)) -> [a] -> (State, [b])
+foldl_with_map state f (x:xs) = let (state', xres) = f state x in
+                               second ((:) xres) (foldl_with_map state' f xs)
+foldl_with_map state _ []     = (state, [])
 
 -- Argument parsing
 
@@ -68,7 +68,7 @@ splash_screen = "Russel! - A compiler for a subset of Rust to MIPS written in Ha
 newtype Reg = Reg Integer
 
 instance Show Reg where
-  show (Reg i) = "r" ++ (show i)
+  show (Reg i) = "t" ++ (show i)
 
 instance Num Reg where
   (Reg l) + (Reg r) = Reg $ l + r
@@ -174,6 +174,9 @@ instance Read Op where
 type Vars = Map String Addr
 variable_address_index = "__variable_address_index"
 variables = singleton variable_address_index 0 :: Vars
+type Statics = Map String Addr
+type State = (Vars, Statics)
+state = (variables, Map.empty)
 
 -- Instructions
 
@@ -249,53 +252,54 @@ norelocate_append blkl blksr = norelocate_concat (blkl : blksr)
 
 -- Compiling
 
-compile :: Vars -> [Tree] -> (Vars, Blk)
-compile vars t = second (resequence . (\blk -> blk ++ [inst_blk Halt])) $ foldl_with_map vars comp_tree t
+compile :: State -> [Tree] -> (State, Blk)
+compile state t = second (resequence . (\blk -> blk ++ [inst_blk Halt])) $ foldl_with_map state comp_tree t
 
-comp_tree :: Vars -> Tree -> (Vars, Blk)
-comp_tree vars (FuncDecl name sts) = let blk = inst_blk (MkLabel (LabelS name)) in
-                                       second (resequence . (blk :)) $ foldl_with_map vars comp_stmt sts
-comp_tree vars (Statements sts)    = second resequence $ foldl_with_map vars comp_stmt sts
+comp_tree :: State -> Tree -> (State, Blk)
+comp_tree state (FuncDecl name sts) = let blk = inst_blk (MkLabel (LabelS name)) in
+                                        second (resequence . (blk :)) $ foldl_with_map state comp_stmt sts
+comp_tree state (Statements sts)    = second resequence $ foldl_with_map state comp_stmt sts
 
-comp_stmt :: Vars -> Statement -> (Vars, Blk)
-comp_stmt vars (Expression exp)    = comp_exp vars exp
-comp_stmt vars (VarDecl s exp _)   = let (Just addr, vars') = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
-                                         (vars'', blk@(_, rr, _)) = first (insert s addr) $ comp_exp vars' exp in
-                                       (vars'', norelocate_append blk [(inst_blk $ Store (fromMaybe 0 rr) addr)])
-comp_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, le)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp vars exp
-                                         (_, body_blk@(_, _, end_label))     = second (relocate_block (succ <$> exp_res) le) $ comp_tree vars' (Statements sts)
-                                         end_label'                          = (succ $ fromJust $ end_label <|> le)
-                                         end_blk                             = inst_blk $ MkLabel $ end_label'
-                                         if_blk                              = inst_blk (If (AReg $ fromMaybe 0 exp_res) Equal (ANumber 0) end_label' Nothing)
-                                         if_blk'                             = norelocate_concat [start_blk, if_blk, body_blk] in
-                                       (,) vars $ norelocate_concat [if_blk', end_blk]
-                                       -- Ignore the vars from body_blk as the variables alocated inside should not be propagated outward
-comp_stmt vars (Println exp)       = second (\blk@(_, re, _) -> merge_blk blk $ inst_blk $ PrintLn $ fromJust re) $ comp_exp vars exp
-comp_stmt vars (Attr s exp)        = let (vars', blk@(_, rr, _)) = comp_exp vars exp in
-                                       (,) vars' $ norelocate_concat $ [blk, inst_blk $ Store (fromJust rr) $ vars' ! s]
+comp_stmt :: State -> Statement -> (State, Blk)
+comp_stmt state (Expression exp)    = comp_exp state exp
+comp_stmt state (VarDecl s exp _)   = let ((Just addr, vars), statics) = first (updateLookupWithKey (\_ -> Just . succ) variable_address_index) state
+                                          state'                       = (vars, statics)
+                                          (state'', blk@(_, rr, _))    = first (first $ insert s addr) $ comp_exp state' exp in
+                                        (state'', norelocate_append blk [(inst_blk $ Store (fromMaybe 0 rr) addr)])
+comp_stmt state (WhileStmt exp sts) = let (state', start_blk@(_, exp_res, le)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp state exp
+                                          (_, body_blk@(_, _, end_label))      = second (relocate_block (succ <$> exp_res) le) $ comp_tree state' (Statements sts)
+                                          end_label'                           = (succ $ fromJust $ end_label <|> le)
+                                          end_blk                              = inst_blk $ MkLabel $ end_label'
+                                          if_blk                               = inst_blk (If (AReg $ fromMaybe 0 exp_res) Equal (ANumber 0) end_label' Nothing)
+                                          if_blk'                              = norelocate_concat [start_blk, if_blk, body_blk] in
+                                        (,) state $ norelocate_concat [if_blk', end_blk]
+                                       -- Ignore the state from body_blk as the variables alocated inside should not be propagated outward
+comp_stmt state (Println exp)       = second (\blk@(_, re, _) -> merge_blk blk $ inst_blk $ PrintLn $ fromJust re) $ comp_exp state exp
+comp_stmt state (Attr s exp)        = let (state', blk@(_, rr, _)) = comp_exp state exp in
+                                        (,) state' $ norelocate_concat $ [blk, inst_blk $ Store (fromJust rr) $ (fst state') ! s]
 
 
 
-comp_exp :: Vars -> Exp -> (Vars, Blk)
-comp_exp vars (LitExp (VTInt i _))   = (,) vars $ inst_blk $ Unary reg0 (ANumber i)
-comp_exp vars (LitExp (VTBool b))    = (,) vars $ inst_blk $ Unary reg0 (ANumber $ fromEnum b)
-comp_exp vars (LitExp (VTString s))  = (,) vars $ inst_blk $ Unary reg0 (AString s)
-comp_exp vars (Var s)                = (,) vars $ inst_blk $ Load reg0 (vars ! s)
-comp_exp vars (BinaryOp el so er)    = let (vars', blkl@(insl, rl, _)) = comp_exp vars el
-                                           (vars'', blkr)              = comp_exp vars' er
-                                           (insr, rr, lr)              = merge_blk blkl blkr in
-                                         (,) vars'' (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: Op) (AReg $ fromJust rr)],
-                                                     (succ <$> rr),
-                                                     (succ <$> lr))
-comp_exp vars (IfExp exp true false) = let (vars', eval_blk@(_, er, _))     = comp_exp vars exp
-                                           (_,  true_blk@(ins_tr, rt, llt)) = second (merge_blk $ inst_blk $ MkLabel label0)                $ comp_tree vars' (Statements true)
-                                           (_, false_blk@(ins_fa, rf, llf)) = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ comp_tree vars' (Statements false)
-                                           end_label                        = succ $ fromJust llf
-                                           end_blk                          = inst_blk $ MkLabel $ end_label
-                                           true_blk'                        = maybe true_blk  (\trt -> (ins_tr ++ [Unary reg0 (AReg trt), Goto end_label], Just reg0, Nothing)) rt
-                                           false_blk'                       = maybe false_blk (\trf -> (ins_fa ++ [Unary reg0 (AReg trf), Goto end_label], Just reg0, Nothing)) rf
-                                           if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 (succ <$> llt) in
-                                         (,) vars $ norelocate_concat [eval_blk, if_blk, true_blk', false_blk', end_blk]
+comp_exp :: State -> Exp -> (State, Blk)
+comp_exp state (LitExp (VTInt i _))   = (,) state $ inst_blk $ Unary reg0 (ANumber i)
+comp_exp state (LitExp (VTBool b))    = (,) state $ inst_blk $ Unary reg0 (ANumber $ fromEnum b)
+comp_exp state (LitExp (VTString s))  = (,) state $ inst_blk $ Unary reg0 (AString s)
+comp_exp state (Var s)                = (,) state $ inst_blk $ Load reg0 ((fst state) ! s)
+comp_exp state (BinaryOp el so er)    = let (state', blkl@(insl, rl, _)) = comp_exp state el
+                                            (state'', blkr)              = comp_exp state' er
+                                            (insr, rr, lr)              = merge_blk blkl blkr in
+                                          (,) state'' (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: Op) (AReg $ fromJust rr)],
+                                                       (succ <$> rr),
+                                                       (succ <$> lr))
+comp_exp state (IfExp exp true false) = let (state', eval_blk@(_, er, _))     = comp_exp state exp
+                                            (_,  true_blk@(ins_tr, rt, llt)) = second (merge_blk $ inst_blk $ MkLabel label0)                $ comp_tree state' (Statements true)
+                                            (_, false_blk@(ins_fa, rf, llf)) = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ comp_tree state' (Statements false)
+                                            end_label                        = succ $ fromJust llf
+                                            end_blk                          = inst_blk $ MkLabel $ end_label
+                                            true_blk'                        = maybe true_blk  (\trt -> (ins_tr ++ [Unary reg0 (AReg trt), Goto end_label], Just reg0, Nothing)) rt
+                                            false_blk'                       = maybe false_blk (\trf -> (ins_fa ++ [Unary reg0 (AReg trf), Goto end_label], Just reg0, Nothing)) rf
+                                            if_blk                           = inst_blk $ If (AReg $ fromJust er) Diff (ANumber 0) label0 (succ <$> llt) in
+                                          (,) state $ norelocate_concat [eval_blk, if_blk, true_blk', false_blk', end_blk]
 
 
 
@@ -308,7 +312,7 @@ main = do
   -- Process --
   let token_list = scan_tokens raw_input
   let parse_tree = parse token_list
-  let (_, (compile_result, _, _)) = compile variables parse_tree
+  let (_, (compile_result, _, _)) = compile state parse_tree
 
   -- Output --
   if (print_token_list args) then
