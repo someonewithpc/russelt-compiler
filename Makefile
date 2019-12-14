@@ -1,4 +1,4 @@
-OBJS=scanner.hi scanner.o scanner.info parser.hi parser.o parser.info compiler.o
+OBJS=scanner.hi scanner.o scanner.info parser.hi parser.o parser.info compiler.hi compiler.o
 
 INTERM=scanner.hs parser.hs
 
