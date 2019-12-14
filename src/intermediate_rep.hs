@@ -96,8 +96,9 @@ relocate_atom _ a = a
 
 -- Operators
 
-data Op = Plus | Minus | Div | Mult | Rem
-        | Equal | Diff | Lt | Gt | Le | Ge
+data Op = Plus | Minus | Div | Mult | Rem   -- Arithmetic
+        | And | Or                          -- Logic
+        | Equal | Diff | Lt | Gt | Le | Ge  -- Comparison
 
 instance Show Op where
   show Plus  = "+"
@@ -105,6 +106,8 @@ instance Show Op where
   show Div   = "/"
   show Mult  = "*"
   show Rem   = "%"
+  show And   = "&&"
+  show Or    = "||"
   show Equal  = "=="
   show Diff   = "!="
   show Le     = "<="
@@ -118,6 +121,8 @@ instance Read Op where
   readsPrec _ ('*':rest)      = [(Mult, rest)]
   readsPrec _ ('/':rest)      = [(Div, rest)]
   readsPrec _ ('%':rest)      = [(Rem, rest)]
+  readsPrec _ ('&':'&':rest)  = [(And, rest)]
+  readsPrec _ ('|':'|':rest)  = [(Or, rest)]
   readsPrec _ ('<':'=':rest)  = [(Le, rest)]
   readsPrec _ ('>':'=':rest)  = [(Ge, rest)]
   readsPrec _ ('=':'=':rest)  = [(Equal, rest)]
