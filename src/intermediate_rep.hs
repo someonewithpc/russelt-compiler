@@ -101,13 +101,13 @@ data Op = Plus | Minus | Div | Mult | Rem   -- Arithmetic
         | Equal | Diff | Lt | Gt | Le | Ge  -- Comparison
 
 instance Show Op where
-  show Plus  = "+"
-  show Minus = "-"
-  show Div   = "/"
-  show Mult  = "*"
-  show Rem   = "%"
-  show And   = "&&"
-  show Or    = "||"
+  show Plus   = "+"
+  show Minus  = "-"
+  show Div    = "/"
+  show Mult   = "*"
+  show Rem    = "%"
+  show And    = "&&"
+  show Or     = "||"
   show Equal  = "=="
   show Diff   = "!="
   show Le     = "<="
@@ -147,14 +147,14 @@ type State = (Vars, Statics)
 type Addr = Int
 
 data IRInstruction = Unary IRReg Atom
-                 | Binary IRReg Atom Op Atom
-                 | Load IRReg Atom
-                 | Store IRReg Atom
-                 | Goto Label
-                 | MkLabel Label
-                 | If Atom Op Atom Label (Maybe Label)
-                 | PrintLn IRReg
-                 | Halt
+                   | Binary IRReg Atom Op Atom
+                   | Load IRReg Atom
+                   | Store IRReg Atom
+                   | Goto Label
+                   | MkLabel Label
+                   | If Atom Op Atom Label (Maybe Label)
+                   | PrintLn IRReg
+                   | Halt
 
 instance Show IRInstruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
