@@ -13,3 +13,7 @@ compiler.o
 *.asm
 intermediate_rep.hi
 intermediate_rep.o
+main.hi
+main.o
+mips.hi
+mips.o

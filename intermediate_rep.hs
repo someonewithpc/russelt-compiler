@@ -137,11 +137,11 @@ statics = singleton statics_address_index 0 :: Statics
 state = (variables, statics)
 type State = (Vars, Statics)
 
--- Instructions
+-- IRInstructions
 
 type Addr = Int
 
-data Instruction = Unary Reg Atom
+data IRInstruction = Unary Reg Atom
                  | Binary Reg Atom Op Atom
                  | Load Reg Atom
                  | Store Reg Atom
@@ -151,7 +151,7 @@ data Instruction = Unary Reg Atom
                  | PrintLn Reg
                  | Halt
 
-instance Show Instruction where
+instance Show IRInstruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
   show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
   show (Load r a)           = "  load " ++ (show r) ++ " (" ++ (show a) ++ ")"
@@ -164,7 +164,7 @@ instance Show Instruction where
   show (PrintLn r)          = "  call println " ++ (show r) ++ ";"
   show (Halt)               = "  halt;"
 
-relocate_instruction :: Maybe Reg -> Maybe Label -> Instruction -> Instruction
+relocate_instruction :: Maybe Reg -> Maybe Label -> IRInstruction -> IRInstruction
 relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
 relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
@@ -178,15 +178,15 @@ relocate_instruction _ _   (Halt)                 = Halt
 
 -- Blocks
 
-type Blk = ([Instruction], (Maybe Reg), (Maybe Label))
+type IRBlk = ([IRInstruction], (Maybe Reg), (Maybe Label))
 
-relocate_block :: Maybe Reg -> Maybe Label -> Blk -> Blk
+relocate_block :: Maybe Reg -> Maybe Label -> IRBlk -> IRBlk
 relocate_block rb lb (ins, rr, lr) = (map (relocate_instruction rb lb) ins, (maybe_offset rb rr), (maybe_offset lb lr))
 
-merge_blk :: Blk -> Blk -> Blk
+merge_blk :: IRBlk -> IRBlk -> IRBlk
 merge_blk (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = relocate_block (succ <$> rl) ll blkr
 
-inst_blk :: Instruction -> Blk
+inst_blk :: IRInstruction -> IRBlk
 inst_blk (Unary reg a)          = ([Unary reg a],         (Just reg), Nothing)
 inst_blk (Binary reg al op ar)  = ([Binary reg al op ar], (Just reg), Nothing)
 inst_blk (Load reg a)           = ([Load reg a],          (Just reg), Nothing)
@@ -198,28 +198,28 @@ inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fr
 inst_blk (PrintLn r)            = ([PrintLn r],            Nothing,   Nothing)
 inst_blk (Halt)                 = ([Halt],                 Nothing,   Nothing)
 
-resequence :: [Blk] -> Blk
+resequence :: [IRBlk] -> IRBlk
 resequence (blk : blks) = foldl merge_blk blk blks
 
-norelocate_concat :: [Blk] -> Blk
-norelocate_concat [] = error "Cannot concat empty Blk list"
+norelocate_concat :: [IRBlk] -> IRBlk
+norelocate_concat [] = error "Cannot concat empty IRBlk list"
 norelocate_concat [b@(_, _, _)] = b
 norelocate_concat ((ins, _, _) : blks) = (ins ++ insr, rr, lr) where (insr, rr, lr) = norelocate_concat blks
 
-norelocate_append :: Blk -> [Blk] -> Blk
+norelocate_append :: IRBlk -> [IRBlk] -> IRBlk
 norelocate_append blkl blksr = norelocate_concat (blkl : blksr)
 
--- Compiling
+-- Transforming to Intermediate Representation
 
-ir :: State -> [Tree] -> (State, Blk)
+ir :: State -> [Tree] -> (State, IRBlk)
 ir state t = second (resequence . (\blk -> blk ++ [inst_blk Halt])) $ foldl_with_map state ir_tree t
 
-ir_tree :: State -> Tree -> (State, Blk)
+ir_tree :: State -> Tree -> (State, IRBlk)
 ir_tree state (FuncDecl name sts) = let blk = inst_blk (MkLabel (LabelS name)) in
                                       second (resequence . (blk :)) $ foldl_with_map state ir_stmt sts
 ir_tree state (Statements sts)    = second resequence $ foldl_with_map state ir_stmt sts
 
-ir_stmt :: State -> Statement -> (State, Blk)
+ir_stmt :: State -> Statement -> (State, IRBlk)
 ir_stmt state (Expression exp)    = ir_exp state exp
 ir_stmt state (VarDecl s exp _)   = let ((Just addr, vars), statics) = first (updateLookupWithKey (\_ -> Just . succ) variable_address_index) state
                                         (state', blk@(_, rr, _))     = first (first $ insert s addr) $ ir_exp (vars, statics) exp in
@@ -238,7 +238,7 @@ ir_stmt state (Attr s exp)        = let (state', blk@(_, rr, _)) = ir_exp state 
 
 
 
-ir_exp :: State -> Exp -> (State, Blk)
+ir_exp :: State -> Exp -> (State, IRBlk)
 ir_exp state (LitExp (VTInt i _))   = (,) state $ inst_blk $ Unary reg0 (ANumber i)
 ir_exp state (LitExp (VTBool b))    = (,) state $ inst_blk $ Unary reg0 (ANumber $ fromEnum b)
 ir_exp state (LitExp (VTString s))  = let (vars, (Just st, statics)) = second (updateLookupWithKey (\_ -> Just . succ) statics_address_index) state
