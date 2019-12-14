@@ -6,7 +6,7 @@ import Parser
 import Options.Applicative
 import Data.Monoid ((<>))
 import Data.Maybe
-import Data.Map.Strict as Map (singleton, empty, insert, updateLookupWithKey, (!), Map)
+import Data.Map.Strict as Map (singleton, insert, insertLookupWithKey, updateLookupWithKey, (!), Map)
 import Control.Monad
 import Data.Bifunctor
 
@@ -125,13 +125,15 @@ maybe_offset b r             = Just $ (fromMaybe 0 b) + (fromMaybe 0 r)
 data Atom = AVar String
           | AReg Reg
           | ANumber Int
-          | AString String
+          | AAddr Addr
+          | AStatic Int
 
 instance Show Atom where
   show (AVar s) = s
   show (AReg r) = show r
   show (ANumber i) = show i
-  show (AString s) = s
+  show (AAddr a) = "$" ++ show a
+  show (AStatic s) = "#" ++ show s
 
 relocate_atom :: Maybe Reg -> Atom -> Atom
 relocate_atom (Just l) (AReg r) = AReg $ l + r
@@ -174,9 +176,11 @@ instance Read Op where
 type Vars = Map String Addr
 variable_address_index = "__variable_address_index"
 variables = singleton variable_address_index 0 :: Vars
-type Statics = Map String Addr
+type Statics = Map String Int
+statics_address_index = "__statics_address_index"
+statics = singleton statics_address_index 0 :: Statics
+state = (variables, statics)
 type State = (Vars, Statics)
-state = (variables, Map.empty)
 
 -- Instructions
 
@@ -184,8 +188,8 @@ type Addr = Int
 
 data Instruction = Unary Reg Atom
                  | Binary Reg Atom Op Atom
-                 | Load Reg Addr
-                 | Store Reg Addr
+                 | Load Reg Atom
+                 | Store Reg Atom
                  | Goto Label
                  | MkLabel Label
                  | If Atom Op Atom Label (Maybe Label)
@@ -195,8 +199,8 @@ data Instruction = Unary Reg Atom
 instance Show Instruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
   show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
-  show (Load r addr)        = "  load " ++ (show r) ++ " (" ++ (show addr) ++ ")"
-  show (Store r addr)       = "  store " ++ (show r) ++ " (" ++ (show addr) ++ ")"
+  show (Load r a)           = "  load " ++ (show r) ++ " (" ++ (show a) ++ ")"
+  show (Store r a)          = "  store " ++ (show r) ++ " (" ++ (show a) ++ ")"
   show (Goto l)             = "  goto " ++ show l
   show (MkLabel l)          = show l ++ ":"
   show (If al rel ar lt lf) = "  if " ++ (show al) ++ " " ++ (show rel) ++ " " ++ (show ar)
@@ -208,8 +212,8 @@ instance Show Instruction where
 relocate_instruction :: Maybe Reg -> Maybe Label -> Instruction -> Instruction
 relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
-relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) a
-relocate_instruction rb _  (Store r a)            = Store   (fromJust $ maybe_offset rb $ Just r) a
+relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
+relocate_instruction rb _  (Store r a)            = Store   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction _ lb  (Goto l)               = Goto    (fromJust $ maybe_offset lb $ Just l)
 relocate_instruction _ lb  (MkLabel l)            = MkLabel (fromJust $ maybe_offset lb $ Just l)
 relocate_instruction rb lb (If al relop ar lt lf) = If      (relocate_atom rb al) relop (relocate_atom rb ar)
@@ -230,8 +234,8 @@ merge_blk (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = re
 inst_blk :: Instruction -> Blk
 inst_blk (Unary reg a)          = ([Unary reg a],         (Just reg), Nothing)
 inst_blk (Binary reg al op ar)  = ([Binary reg al op ar], (Just reg), Nothing)
-inst_blk (Load reg addr)        = ([Load reg addr],       (Just reg), Nothing)
-inst_blk (Store reg addr)       = ([Store reg addr],      (Just reg), Nothing)
+inst_blk (Load reg a)           = ([Load reg a],          (Just reg), Nothing)
+inst_blk (Store reg a)          = ([Store reg a],         (Just reg), Nothing)
 inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
 inst_blk (MkLabel l)            = ([MkLabel l],            Nothing,   Just l)
 inst_blk (If al relop ar lt lf) = ([If al relop ar lt lf], Nothing,   Just $ (fromMaybe lt lf))
@@ -263,9 +267,8 @@ comp_tree state (Statements sts)    = second resequence $ foldl_with_map state c
 comp_stmt :: State -> Statement -> (State, Blk)
 comp_stmt state (Expression exp)    = comp_exp state exp
 comp_stmt state (VarDecl s exp _)   = let ((Just addr, vars), statics) = first (updateLookupWithKey (\_ -> Just . succ) variable_address_index) state
-                                          state'                       = (vars, statics)
-                                          (state'', blk@(_, rr, _))    = first (first $ insert s addr) $ comp_exp state' exp in
-                                        (state'', norelocate_append blk [(inst_blk $ Store (fromMaybe 0 rr) addr)])
+                                          (state', blk@(_, rr, _))     = first (first $ insert s addr) $ comp_exp (vars, statics) exp in
+                                        (state', norelocate_append blk [(inst_blk $ Store (fromMaybe 0 rr) $ AAddr addr)])
 comp_stmt state (WhileStmt exp sts) = let (state', start_blk@(_, exp_res, le)) = second (merge_blk (inst_blk $ MkLabel label0)) $ comp_exp state exp
                                           (_, body_blk@(_, _, end_label))      = second (relocate_block (succ <$> exp_res) le) $ comp_tree state' (Statements sts)
                                           end_label'                           = (succ $ fromJust $ end_label <|> le)
@@ -274,17 +277,20 @@ comp_stmt state (WhileStmt exp sts) = let (state', start_blk@(_, exp_res, le)) =
                                           if_blk'                              = norelocate_concat [start_blk, if_blk, body_blk] in
                                         (,) state $ norelocate_concat [if_blk', end_blk]
                                        -- Ignore the state from body_blk as the variables alocated inside should not be propagated outward
-comp_stmt state (Println exp)       = second (\blk@(_, re, _) -> merge_blk blk $ inst_blk $ PrintLn $ fromJust re) $ comp_exp state exp
+comp_stmt state (Println exp)       = second (\blk@(_, re, _) -> norelocate_concat [blk, inst_blk $ PrintLn $ fromJust re]) $ comp_exp state exp
 comp_stmt state (Attr s exp)        = let (state', blk@(_, rr, _)) = comp_exp state exp in
-                                        (,) state' $ norelocate_concat $ [blk, inst_blk $ Store (fromJust rr) $ (fst state') ! s]
+                                        (,) state' $ norelocate_concat $ [blk, inst_blk $ Store (fromJust rr) $ AAddr $ (fst state') ! s]
 
 
 
 comp_exp :: State -> Exp -> (State, Blk)
 comp_exp state (LitExp (VTInt i _))   = (,) state $ inst_blk $ Unary reg0 (ANumber i)
 comp_exp state (LitExp (VTBool b))    = (,) state $ inst_blk $ Unary reg0 (ANumber $ fromEnum b)
-comp_exp state (LitExp (VTString s))  = (,) state $ inst_blk $ Unary reg0 (AString s)
-comp_exp state (Var s)                = (,) state $ inst_blk $ Load reg0 ((fst state) ! s)
+comp_exp state (LitExp (VTString s))  = let (vars, (Just st, statics)) = second (updateLookupWithKey (\_ -> Just . succ) statics_address_index) state
+                                            (old, statics')              = insertLookupWithKey (\_ _ new -> new) s st statics in
+                                            -- If old is Just, the string was already accounted for, so keep the old state
+                                          (maybe (vars, statics') (\_ -> state) old, inst_blk $ Load reg0 $ AStatic st)
+comp_exp state (Var s)                = (,) state $ inst_blk $ Load reg0 (AAddr $ (fst state) ! s)
 comp_exp state (BinaryOp el so er)    = let (state', blkl@(insl, rl, _)) = comp_exp state el
                                             (state'', blkr)              = comp_exp state' er
                                             (insr, rr, lr)              = merge_blk blkl blkr in
