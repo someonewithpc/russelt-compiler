@@ -20,25 +20,25 @@ foldl_with_map state _ []     = (state, [])
 
 -- Registers
 
-newtype Reg = Reg Integer
+newtype IRReg = IRReg Integer
 
-instance Show Reg where
-  show (Reg i) = "t" ++ (show i)
+instance Show IRReg where
+  show (IRReg i) = "t" ++ (show i)
 
-instance Num Reg where
-  (Reg l) + (Reg r) = Reg $ l + r
-  (Reg l) - (Reg r) = Reg $ l - r
-  fromInteger i     = (Reg i)
+instance Num IRReg where
+  (IRReg l) + (IRReg r) = IRReg $ l + r
+  (IRReg l) - (IRReg r) = IRReg $ l - r
+  fromInteger i     = (IRReg i)
   (*)               = undefined
   abs               = undefined
   signum            = undefined
 
-instance Enum Reg where
-  toEnum i = Reg (toInteger i)
-  fromEnum (Reg i) = fromIntegral i
+instance Enum IRReg where
+  toEnum i = IRReg (toInteger i)
+  fromEnum (IRReg i) = fromIntegral i
 
-reg0 = Reg 0
-reg1 = Reg 1
+reg0 = IRReg 0
+reg1 = IRReg 1
 
 -- Label
 
@@ -78,7 +78,7 @@ maybe_offset b r             = Just $ (fromMaybe 0 b) + (fromMaybe 0 r)
 -- Atoms
 
 data Atom = AVar String
-          | AReg Reg
+          | AReg IRReg
           | ANumber Int
           | AAddr Addr
           | AStatic Int
@@ -90,7 +90,7 @@ instance Show Atom where
   show (AAddr a) = "$" ++ show a
   show (AStatic s) = "#" ++ show s
 
-relocate_atom :: Maybe Reg -> Atom -> Atom
+relocate_atom :: Maybe IRReg -> Atom -> Atom
 relocate_atom (Just l) (AReg r) = AReg $ l + r
 relocate_atom _ a = a
 
@@ -146,14 +146,14 @@ type State = (Vars, Statics)
 
 type Addr = Int
 
-data IRInstruction = Unary Reg Atom
-                 | Binary Reg Atom Op Atom
-                 | Load Reg Atom
-                 | Store Reg Atom
+data IRInstruction = Unary IRReg Atom
+                 | Binary IRReg Atom Op Atom
+                 | Load IRReg Atom
+                 | Store IRReg Atom
                  | Goto Label
                  | MkLabel Label
                  | If Atom Op Atom Label (Maybe Label)
-                 | PrintLn Reg
+                 | PrintLn IRReg
                  | Halt
 
 instance Show IRInstruction where
@@ -169,7 +169,7 @@ instance Show IRInstruction where
   show (PrintLn r)          = "  call println " ++ (show r) ++ ";"
   show (Halt)               = "  halt;"
 
-relocate_instruction :: Maybe Reg -> Maybe Label -> IRInstruction -> IRInstruction
+relocate_instruction :: Maybe IRReg -> Maybe Label -> IRInstruction -> IRInstruction
 relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
 relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
@@ -183,9 +183,9 @@ relocate_instruction _ _   (Halt)                 = Halt
 
 -- Blocks
 
-type IRBlk = ([IRInstruction], (Maybe Reg), (Maybe Label))
+type IRBlk = ([IRInstruction], (Maybe IRReg), (Maybe Label))
 
-relocate_block :: Maybe Reg -> Maybe Label -> IRBlk -> IRBlk
+relocate_block :: Maybe IRReg -> Maybe Label -> IRBlk -> IRBlk
 relocate_block rb lb (ins, rr, lr) = (map (relocate_instruction rb lb) ins, (maybe_offset rb rr), (maybe_offset lb lr))
 
 merge_blk :: IRBlk -> IRBlk -> IRBlk

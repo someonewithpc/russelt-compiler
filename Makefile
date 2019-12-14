@@ -1,9 +1,4 @@
-OBJS=src/scanner.hi src/scanner.o src/scanner.info \
-     src/parser.hi src/parser.o src/parser.info \
-     src/intermediate_rep.hi src/intermediate_rep.o \
-     src/compiler.hi src/compiler.o \
-     src/mips.hi src/mips.o \
-     src/main.hi src/main.o
+OBJS=src/*.hi src/*.o
 
 AUTO_INTERM=src/scanner.hs src/parser.hs
 INTERM=$(AUTO_INTERM) src/intermediate_rep.hs src/compiler.hs src/mips.hs src/main.hs

@@ -7,7 +7,18 @@ import Data.Maybe
 import Data.Map.Strict as Map ()
 import Data.Bifunctor
 
-data MIPS = Nop
+data Reg = Zero | VReg Int | AReg Int | TReg Int | GP | SP | FP | RA
+
+data MIPS = NOOP | ADD Reg Reg Reg
+          | ADDI Reg Reg Int | MULT Reg Reg | DIV Reg Reg
+          | AND Reg Reg Reg | ANDI Reg Reg Int | OR Reg Reg Reg | ORI Reg Reg Int
+          | BEQ Reg Reg Int | BGEZ Reg Int | BGEZAL Reg Int | BGTZ Reg Int | BLTZ Reg Int | BLTZAL Reg Int | BNE Reg Reg Int
+          | J Int | JAL Int | JR Reg
+          | LB Reg Reg Int | LW Reg Reg Int | LUI Reg Int
+          | SB Reg Reg Int
+          | SLL Reg Reg Int | SLLV Reg Reg Reg
+          | SLT Reg Reg Reg | SLTI Reg Reg Int
+          | MFHI Reg | MFLO Reg
 
 instance ASM MIPS where
   compile state ir@(inst, reg, label) = undefined
@@ -55,3 +66,6 @@ instance ASM MIPS where
 -- -- > Load/Store/Move Instructions
 -- to_mips ((Unary reg (ANumber num)):xs) = "li " ++ (show reg) ++ " " ++ (show num) ++ "\n" ++ (to_mips xs)
 -- to_mips ((Store reg (ANumber num)):xs) = "li " ++ (show reg) ++ " " ++ (show num) ++ "\n" ++ (to_mips xs)
+
+instance Show MIPS where
+  show NOP = "nop"
