@@ -11,3 +11,5 @@ compiler
 compiler.hi
 compiler.o
 *.asm
+intermediate_rep.hi
+intermediate_rep.o

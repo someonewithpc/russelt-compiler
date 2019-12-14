@@ -1,6 +1,7 @@
-OBJS=scanner.hi scanner.o scanner.info parser.hi parser.o parser.info compiler.hi compiler.o
+OBJS=scanner.hi scanner.o scanner.info parser.hi parser.o parser.info intermediate_rep.hi intermediate_rep.o compiler.hi compiler.o out.asm
 
-INTERM=scanner.hs parser.hs
+AUTO_INTERM=scanner.hs parser.hs
+INTERM=$(AUTO_INTERM) intermediate_rep.hs compiler.hs
 
 PROGRAM=compiler
 
@@ -13,7 +14,7 @@ parser.hs : parser.y
 	happy --info -o parser.hs parser.y
 
 
-$(PROGRAM): $(INTERM) compiler.hs
-	ghc -dynamic -o $(PROGRAM) $(INTERM) compiler.hs
+$(PROGRAM): $(INTERM)
+	ghc -dynamic -o $(PROGRAM) $(INTERM)
 clean:
-	rm -f $(PROGRAM) $(INTERM) $(OBJS)
+	rm -f $(PROGRAM) $(AUTO_INTERM) $(OBJS)
