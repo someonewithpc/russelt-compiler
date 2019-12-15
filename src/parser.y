@@ -117,6 +117,14 @@ Exp
     | bool                                         { LitExp (VTBool $1) }
     | string                                       { LitExp (VTString $1) }
     | id                                           { Var $1 }
+    -- Attributions
+    | '++' id                                      { UnaryOp "++" (Var $2) }
+    | '--' id                                      { UnaryOp "--" (Var $2) }
+    | id '+=' Exp                                  { BinaryOp (Var $1) "+=" $3 }
+    | id '-=' Exp                                  { BinaryOp (Var $1) "-=" $3 }
+    | id '*=' Exp                                  { BinaryOp (Var $1) "*=" $3 }
+    | id '/=' Exp                                  { BinaryOp (Var $1) "/=" $3 }
+    | id '%=' Exp                                  { BinaryOp (Var $1) "%=" $3 }
     -- Arithmetic Operators
     | Exp '+' Exp                                  { BinaryOp $1 "+" $3 }
     | Exp '-' Exp                                  { BinaryOp $1 "-" $3 }
