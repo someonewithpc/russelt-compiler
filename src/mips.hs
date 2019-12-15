@@ -54,8 +54,9 @@ to_reg (IR.Reg i) = fromInteger i :: Reg
 
 -- Instructions
 
-data MIPS = NOOP
+data MIPS =
           -- System
+            NOOP
           | SYSCALL
           -- Arithmetic/Logic
           | ADD Reg Reg Reg | ADDI Reg Reg Int | MULT Reg Reg | DIV Reg Reg | SUB Reg Reg Reg
@@ -99,6 +100,7 @@ instance Show MIPS where
   show (OR r0 r1 r2)  = "  or "     ++ (commas [OpReg r0, OpReg r1, OpReg r2])
   show (ORI r0 r1 i)  = "  ori "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
   -- Branch and Jump
+  show (LABEL s)      = s ++ ":"
   show (BEQ r0 r1 i)  = "  beq "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (BNE r0 r1 i)  = "  bne "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (BLT r0 r1 i)  = "  blt "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
@@ -110,8 +112,12 @@ instance Show MIPS where
   show (BGTZ r0 i)    = "  bgtz "   ++ (commas [OpReg r0, OpInt i])
   show (BLTZ r0 i)    = "  bltz "   ++ (commas [OpReg r0, OpInt i])
   show (BLTZAL r0 i)  = "  bltzal " ++ (commas [OpReg r0, OpInt i])
+  show (J i)          = "  j "      ++ (show i)
+  show (JALi i)       = "  jal "    ++ (show i)
+  show (JALs s)       = "  jal "    ++ (show s)
+  show (JR r0)        = "  jr "     ++ (show r0)
   -- Load/Store/Move
-  show (LABEL s)      = s ++ ":"
+  show (LB r0 r1 i)   = "  lb "     ++ (show r0)
   show (LW r0 r1 i)   = "  lw "     ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (LUI r0 i)     = "  lui "    ++ (commas [OpReg r0, OpInt i])
   show (MOVE r0 r1)   = "  move "   ++ (commas [OpReg r0, OpReg r1])
@@ -119,11 +125,6 @@ instance Show MIPS where
   show (LA r0 s)      = "  la "     ++ (commas [OpReg r0, OpStr s])
   show (SB r0 r1 i)   = "  sb "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
   show (SW r0 r1 i)   = "  sw "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
-  show (J i)          = "  j "      ++ (show i)
-  show (JALi i)       = "  jal "    ++ (show i)
-  show (JALs s)       = "  jal "    ++ (show s)
-  show (JR r0)        = "  jr "     ++ (show r0)
-  show (LB r0 r1 i)   = "  lb "     ++ (show r0)
   show (MFHI r0)      = "  mfhi "   ++ (show r0)
   show (MFLO r0)      = "  mflo "   ++ (show r0)
   -- Comparison
