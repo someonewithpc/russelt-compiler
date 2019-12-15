@@ -68,8 +68,8 @@ main = do
   -- Process --
   let token_list                        = scan_tokens raw_input
   let parse_tree                        = parse token_list
-  let (state, ir_blk@(ir_result, _, _)) = IR.ir state parse_tree
-  let asm                               = compile state ir_blk :: [MIPS]
+  let (vars, ir_blk@(ir_result, _, _))  = IR.ir IR.variables parse_tree
+  let asm                               = compile vars ir_blk :: [MIPS]
 
   -- Output --
   if (print_token_list args) then
@@ -80,9 +80,9 @@ main = do
     putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
   else return ()
 
-  let compile_output = (unlines $ map show ir_result)
+  let ir_output = (unlines $ map show ir_result)
   if (print_instruction_list args) then
-    putStrLn ("Instruction List:\n" ++ compile_output)
+    putStrLn ("Instruction List:\n" ++ ir_output)
   else return ()
 
   if (print_mips args) then
@@ -91,4 +91,4 @@ main = do
 
   let out_file = fromMaybe "out.asm" (output_file args)
 
-  writeFile out_file compile_output
+  writeFile out_file (unlines $ map show asm)

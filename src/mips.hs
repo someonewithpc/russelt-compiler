@@ -112,10 +112,10 @@ instance Show MIPS where
 
 
 instance ASM MIPS where
-  compile vars ir@(inst, reg, label) = map (comp_inst vars) inst
+  compile vars ir@(inst, _, _) = map (comp_inst vars) inst
 
 comp_inst :: IR.Vars -> IR.Instruction -> MIPS
-comp_inst vars (IR.Unary reg (IR.AReg areg)) = MOVE (to_reg reg) (to_reg areg)
+comp_inst vars (IR.Unary reg (IR.AReg areg))  = MOVE (to_reg reg) (to_reg areg)
 comp_inst vars (IR.Unary reg (IR.ANumber an)) = LI (to_reg reg) an
 comp_inst vars (IR.Unary reg (IR.ALabel lbl)) = LA (to_reg reg) $ "__st" ++ (show lbl)
 -- comp_inst vars (IR.Binary reg (IR.ANumber an)) = LI (to_reg reg) an
