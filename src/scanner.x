@@ -12,11 +12,11 @@ tokens :-
     -- Functions
     fn                                  { \p _ -> TokenFn p }
     -- Expression followed by Attribution
-    \+\+|\-\-|[\*\/\%\+\-\^\|]\=  { \p s -> TokenOpAtr p s}
+    \+\+|\-\-|[\*\/\%\+\-]\=            { \p s -> TokenOpAtr p s}
     -- Attributions
     \=                                  { \p _ -> TokenAtr p }
     -- Expressions
-    \&\&|\|\||[\!\<\>\=]\=|[\*\/\%\!\<\>\+\-\^\|]  { \p s -> TokenOp p s }
+    \&\&|\|\||[\!\<\>\=]\=|[\*\/\%\!\<\>\+\-]  { \p s -> TokenOp p s }
     -- Miscelaneous
     \(                                  { \p _ -> TokenLB p }
     \)					{ \p _ -> TokenRB p }
