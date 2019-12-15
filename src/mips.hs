@@ -9,6 +9,7 @@ import Data.Maybe
 import Data.Map.Strict as Map ()
 import Data.Bifunctor
 import Data.List
+import Control.Exception (try)
 
 -- Registers
 
@@ -110,7 +111,13 @@ instance Show MIPS where
 
 
 instance ASM MIPS where
-  compile vars ir@(inst, _, _) = map (comp_inst vars) inst
+  compile vars ir@(inst, _, _) = map (comp_inst vars) $ relocate_regs NOOP IR.reg0 inst
+  relocate_regs a reg@(IR.Reg r) (inst : insts) = insts
+  --let nreg = c vvvvvcase (try (fromInteger r :: Reg)) of
+  --                                                       Left ex = error $ show ex
+  --                                                       Right
+  --   (:) (IR.relocate_instruction (Just reg) Nothing inst)
+  --                                      relocate_regs a nreg insts
 
 comp_inst :: IR.Vars -> IR.Instruction -> MIPS
 comp_inst vars (IR.Unary reg (IR.AReg areg))  = MOVE (to_reg reg) (to_reg areg)
@@ -123,5 +130,6 @@ comp_inst vars (IR.Binary reg regl IR.Mult (IR.AReg regr))   = MULT (to_reg regl
 comp_inst vars (IR.Binary reg regl IR.Div (IR.AReg regr))    = DIV  (to_reg regl) (to_reg regr)
 comp_inst vars (IR.Binary reg regl IR.Plus (IR.ANumber n))   = ADDI (to_reg reg) (to_reg regl) n
 comp_inst vars (IR.MkLabel l)                                = LABEL (show l)
+--
 comp_inst vars (IR.Binary reg regl op a)                     = error $ "Unimplemented IR instruction: binary with r = " ++ (show a)
 comp_inst _ i                                                = error $ "Unimplemented IR instruction: " ++ (show i)
