@@ -24,6 +24,14 @@ import Data.List
   ')'                                   { TokenRB _ }
   '{'                                   { TokenLC _ }
   '}'                                   { TokenRC _ }
+    -- Expression followed by Attribution
+  '%='                                  { TokenOpAtr _ "%=" }
+  '*='                                  { TokenOpAtr _ "*=" }
+  '+='                                  { TokenOpAtr _ "+=" }
+  '-='                                  { TokenOpAtr _ "-=" }
+  '/='                                  { TokenOpAtr _ "/=" }
+  '++'                                  { TokenOpAtr _ "++" }
+  '--'                                  { TokenOpAtr _ "--" }
     -- Arithmetic Expessions
   '+'                                   { TokenOp _ "+" }
   '-'                                   { TokenOp _ "-" }
