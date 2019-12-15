@@ -85,10 +85,11 @@ main = do
     putStrLn ("Instruction List:\n" ++ ir_output)
   else return ()
 
+  let mips_output = (unlines $ map show asm)
   if (print_mips args) then
-    putStrLn ("Compile Result:\n")
+    putStrLn ("Compile Result:\n" ++ mips_output)
   else return ()
 
   let out_file = fromMaybe "out.asm" (output_file args)
 
-  writeFile out_file (unlines $ map show asm)
+  writeFile out_file mips_output
