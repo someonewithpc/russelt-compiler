@@ -141,7 +141,7 @@ variables = fromList [(variable_address_index, 0), (statics_label_counter, 0)] :
 type Addr = Int
 
 data Instruction = Unary Reg Atom
-                 | Binary Reg Atom Op Atom
+                 | Binary Reg Reg Op Atom
                  | Load Reg Atom
                  | Store Reg Atom
                  | Goto Label
@@ -152,7 +152,7 @@ data Instruction = Unary Reg Atom
 
 instance Show Instruction where
   show (Unary r a)          = "  " ++ (show r) ++ ":= " ++ (show a) ++ ";"
-  show (Binary r al op ar)  = "  " ++ (show r) ++ ":= " ++ (show al) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
+  show (Binary r rl op ar)  = "  " ++ (show r) ++ ":= " ++ (show rl) ++ " " ++ (show op) ++ " " ++ (show ar) ++ ";"
   show (Load r a)           = "  load " ++ (show r) ++ " (" ++ (show a) ++ ")"
   show (Store r a)          = "  store " ++ (show r) ++ " (" ++ (show a) ++ ")"
   show (Goto l)             = "  goto " ++ show l
@@ -165,7 +165,8 @@ instance Show Instruction where
 
 relocate_instruction :: Maybe Reg -> Maybe Label -> Instruction -> Instruction
 relocate_instruction rb _  (Unary r a)            = Unary   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
-relocate_instruction rb _  (Binary r al numop ar) = Binary  (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb al) numop (relocate_atom rb ar)
+relocate_instruction rb _  (Binary r rl op ar)    = Binary  (fromJust $ maybe_offset rb $ Just r)
+                                                    (fromJust $ maybe_offset rb $ Just rl) op (relocate_atom rb ar)
 relocate_instruction rb _  (Load r a)             = Load    (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction rb _  (Store r a)            = Store   (fromJust $ maybe_offset rb $ Just r) (relocate_atom rb a)
 relocate_instruction _ lb  (Goto l)               = Goto    (fromJust $ maybe_offset lb $ Just l)
@@ -187,7 +188,7 @@ merge_blk (insl, rl, ll) blkr = (insl ++ insr, rr, lr) where (insr, rr, lr) = re
 
 inst_blk :: Instruction -> Blk
 inst_blk (Unary reg a)          = ([Unary reg a],         (Just reg), Nothing)
-inst_blk (Binary reg al op ar)  = ([Binary reg al op ar], (Just reg), Nothing)
+inst_blk (Binary reg rl op ar)  = ([Binary reg rl op ar], (Just reg), Nothing)
 inst_blk (Load reg a)           = ([Load reg a],          (Just reg), Nothing)
 inst_blk (Store reg a)          = ([Store reg a],         (Just reg), Nothing)
 inst_blk (Goto l)               = ([Goto l],               Nothing,   Nothing)
@@ -246,7 +247,7 @@ ir_exp vars (Var s)                = (,) vars $ inst_blk $ Load reg0 (AAddr $ va
 ir_exp vars (BinaryOp el so er)    = let (vars', blkl@(insl, rl, _)) = ir_exp vars el
                                          (vars'', blkr)              = ir_exp vars' er
                                          (insr, rr, lr)              = merge_blk blkl blkr in
-                                       (,) vars'' (insr ++ [Binary (succ $ fromJust rr) (AReg $ fromJust rl) (read so :: Op) (AReg $ fromJust rr)], (succ <$> rr), (succ <$> lr))
+                                       (,) vars'' (insr ++ [Binary (succ $ fromJust rr) (fromJust rl) (read so :: Op) (AReg $ fromJust rr)], (succ <$> rr), (succ <$> lr))
 ir_exp vars (IfExp exp true false) = let (vars', eval_blk@(_, er, _))     = ir_exp vars exp
                                          (_,  true_blk@(ins_tr, rt, llt)) = second (merge_blk $ inst_blk $ MkLabel label0)                $ ir_tree vars' (Statements true)
                                          (_, false_blk@(ins_fa, rf, llf)) = second (merge_blk $ inst_blk $ MkLabel $ succ $ fromJust llt) $ ir_tree vars' (Statements false)
