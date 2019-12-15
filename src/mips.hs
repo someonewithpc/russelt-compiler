@@ -9,10 +9,13 @@ import Data.Maybe
 import Data.Map.Strict as Map ()
 import Data.Bifunctor
 import Data.List
-import Control.Exception (try)
+import Control.Exception (try, evaluate)
+
+base_address = 0
 
 -- Registers
 
+register_count = 32
 data Reg = Zero | VReg Integer | AReg Integer | TReg Integer | SReg Integer | GP | SP | FP | RA
 
 instance Num Reg where
@@ -28,6 +31,8 @@ instance Num Reg where
                 | i == 29            = SP
                 | i == 30            = FP
                 | i == 31            = RA
+                | otherwise          = error "Ran out of registers"
+
   _ + _  = undefined
   _ * _  = undefined
   _ - _  = undefined
@@ -36,9 +41,9 @@ instance Num Reg where
 
 instance Show Reg where
   show Zero     = "$zero"
-  show (VReg i) = "$" ++ (show i)
-  show (AReg i) = "$" ++ (show i)
-  show (TReg i) = "$" ++ (show i)
+  show (VReg i) = "$v" ++ (show i)
+  show (AReg i) = "$a" ++ (show i)
+  show (TReg i) = "$t" ++ (show i)
   show GP       = "$gp"
   show SP       = "$sp"
   show FP       = "$fp"
@@ -96,8 +101,8 @@ instance Show MIPS where
   show (MOVE r0 r1)   = "  move "   ++ (commas [OpReg r0, OpReg r1])
   show (LI r0 i)      = "  li "     ++ (commas [OpReg r0, OpInt i])
   show (LA r0 s)      = "  la "     ++ (commas [OpReg r0, OpStr s])
-  show (SB r0 r1 i)   = "  sb "     ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (SW r0 r1 i)   = "  sw "     ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (SB r0 r1 i)   = "  sb "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
+  show (SW r0 r1 i)   = "  sw "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
   show (SLT r0 r1 r2) = "  slt "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
   show (SLTI r0 r1 i) = "  slti "   ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (J i)          = "  j "      ++ (show i)
@@ -109,27 +114,34 @@ instance Show MIPS where
   show (SYSCALL)      = "  syscall"
   show (LABEL s)      = s ++ ":"
 
+next_reg :: IR.Reg -> IR.Reg
+next_reg (IR.Reg r) | r == 0    = IR.Reg 2
+                    | r == 1    = error "Unusable reg"
+                    | r >= 25   = error "No more general purpose registers"
+                    | otherwise = IR.Reg $ succ r
 
 instance ASM MIPS where
-  compile vars ir@(inst, _, _) = map (comp_inst vars) $ relocate_regs NOOP IR.reg0 inst
-  relocate_regs a reg@(IR.Reg r) (inst : insts) = insts
-  --let nreg = c vvvvvcase (try (fromInteger r :: Reg)) of
-  --                                                       Left ex = error $ show ex
-  --                                                       Right
-  --   (:) (IR.relocate_instruction (Just reg) Nothing inst)
-  --                                      relocate_regs a nreg insts
+  compile vars ir@(inst, _, _) = concat $ map (comp_inst vars) $ relocate_regs NOOP IR.reg0 inst
+  relocate_regs _ _ [] = []
+  relocate_regs a reg (inst : insts) = let nreg = next_reg reg in
+                                         (:) (IR.relocate_instruction (Just reg) Nothing inst) (relocate_regs a nreg insts)
 
-comp_inst :: IR.Vars -> IR.Instruction -> MIPS
-comp_inst vars (IR.Unary reg (IR.AReg areg))  = MOVE (to_reg reg) (to_reg areg)
-comp_inst vars (IR.Unary reg (IR.ANumber an)) = LI (to_reg reg) an
-comp_inst vars (IR.Unary reg (IR.ALabel lbl)) = LA (to_reg reg) $ "__st" ++ (show lbl)
+comp_inst :: IR.Vars -> IR.Instruction -> [MIPS]
+comp_inst vars (IR.Unary reg (IR.AReg areg))                 = [MOVE (to_reg reg) (to_reg areg)]
+comp_inst vars (IR.Unary reg (IR.ANumber an))                = [LI (to_reg reg) an]
+comp_inst vars (IR.Unary reg (IR.ALabel lbl))                = [LA (to_reg reg) $ "__st" ++ (show lbl)]
 -- Arithmetic
-comp_inst vars (IR.Binary reg regl IR.Plus (IR.AReg regr))   = ADD  (to_reg reg) (to_reg regl) (to_reg regr)
-comp_inst vars (IR.Binary reg regl IR.Minus (IR.AReg regr))  = SUB  (to_reg reg) (to_reg regl) (to_reg regr)
-comp_inst vars (IR.Binary reg regl IR.Mult (IR.AReg regr))   = MULT (to_reg regl) (to_reg regr)
-comp_inst vars (IR.Binary reg regl IR.Div (IR.AReg regr))    = DIV  (to_reg regl) (to_reg regr)
-comp_inst vars (IR.Binary reg regl IR.Plus (IR.ANumber n))   = ADDI (to_reg reg) (to_reg regl) n
-comp_inst vars (IR.MkLabel l)                                = LABEL (show l)
+comp_inst vars (IR.Binary reg regl IR.Plus (IR.AReg regr))   = [ADD  (to_reg reg) (to_reg regl) (to_reg regr)]
+comp_inst vars (IR.Binary reg regl IR.Minus (IR.AReg regr))  = [SUB  (to_reg reg) (to_reg regl) (to_reg regr)]
+comp_inst vars (IR.Binary reg regl IR.Mult (IR.AReg regr))   = [MULT (to_reg regl) (to_reg regr), MFLO (to_reg reg)]
+comp_inst vars (IR.Binary reg regl IR.Div (IR.AReg regr))    = [DIV  (to_reg regl) (to_reg regr), MFLO (to_reg reg)]
+comp_inst vars (IR.Binary reg regl IR.Rem (IR.AReg regr))    = [DIV  (to_reg regl) (to_reg regr), MFHI (to_reg reg)]
+comp_inst vars (IR.Binary reg regl IR.Plus (IR.ANumber n))   = [ADDI (to_reg reg) (to_reg regl) n]
+comp_inst vars (IR.MkLabel l)                                = [LABEL (show l)]
+-- Memory
+comp_inst vars (IR.Store reg (IR.AAddr addr))                = [SW (to_reg reg) Zero (base_address + addr)]
+-- Misc
+comp_inst vars (IR.Halt)                                     = [LI (VReg 0) 10, SYSCALL]
 --
 comp_inst vars (IR.Binary reg regl op a)                     = error $ "Unimplemented IR instruction: binary with r = " ++ (show a)
 comp_inst _ i                                                = error $ "Unimplemented IR instruction: " ++ (show i)
