@@ -80,9 +80,8 @@ main = do
     putStrLn ("Parse Tree:\n" ++ (printTree parse_tree) ++ "\n")
   else return ()
 
-  let ir_output = (unlines $ map show ir_result)
   if (print_instruction_list args) then
-    putStrLn ("Instruction List:\n" ++ ir_output)
+    putStrLn ("Instruction List:\n" ++ (unlines $ map show ir_result))
   else return ()
 
   let mips_output = (unlines $ map show asm)

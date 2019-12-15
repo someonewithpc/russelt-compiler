@@ -220,8 +220,8 @@ ir_tree vars (Statements sts)    = second resequence $ foldl_with_map vars ir_st
 
 ir_stmt :: Vars -> Statement -> (Vars, Blk)
 ir_stmt vars (Expression exp)    = ir_exp vars exp
-ir_stmt vars (VarDecl s exp _)   = let (Just addr, vars) = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
-                                       (vars', blk@(_, rr, _))     = first (insert s addr) $ ir_exp vars exp in
+ir_stmt vars (VarDecl s exp _)   = let (Just addr, vars')       = updateLookupWithKey (\_ -> Just . succ) variable_address_index vars
+                                       (vars'', blk@(_, rr, _)) = first (insert s addr) $ ir_exp vars' exp in
                                      (vars', norelocate_append blk [(inst_blk $ Store (fromMaybe 0 rr) $ AAddr addr)])
 ir_stmt vars (WhileStmt exp sts) = let (vars', start_blk@(_, exp_res, le)) = second (merge_blk (inst_blk $ MkLabel label0)) $ ir_exp vars exp
                                        (_, body_blk@(_, _, end_label))      = second (relocate_block (succ <$> exp_res) le) $ ir_tree vars' (Statements sts)
