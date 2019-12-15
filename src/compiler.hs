@@ -1,9 +1,8 @@
 
 module Compiler where
 
-import Scanner
 import Parser
-import InterRep
+import qualified IR
 
 class ASM a where
-  compile :: State -> IRBlk -> a
+  compile :: IR.Vars -> IR.Blk -> [a]

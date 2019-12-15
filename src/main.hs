@@ -2,7 +2,7 @@ module Main where
 
 import Scanner
 import Parser
-import InterRep
+import qualified IR
 import Compiler
 import MIPS
 
@@ -68,8 +68,8 @@ main = do
   -- Process --
   let token_list                        = scan_tokens raw_input
   let parse_tree                        = parse token_list
-  let (state, ir_blk@(ir_result, _, _)) = ir state parse_tree
-  let asm                               = compile state ir_blk :: MIPS
+  let (state, ir_blk@(ir_result, _, _)) = IR.ir state parse_tree
+  let asm                               = compile state ir_blk :: [MIPS]
 
   -- Output --
   if (print_token_list args) then
