@@ -55,18 +55,23 @@ to_reg (IR.Reg i) = fromInteger i :: Reg
 -- Instructions
 
 data MIPS = NOOP
+          -- System
+          | SYSCALL
+          -- Arithmetic/Logic
           | ADD Reg Reg Reg | ADDI Reg Reg Int | MULT Reg Reg | DIV Reg Reg | SUB Reg Reg Reg
           | AND Reg Reg Reg | ANDI Reg Reg Int | OR Reg Reg Reg | ORI Reg Reg Int
+          -- Branch and Jump
+          | LABEL String
           | BEQ Reg Reg Int | BGEZ Reg Int | BGEZAL Reg Int | BGTZ Reg Int
           | BLTZ Reg Int | BLTZAL Reg Int | BNE Reg Reg Int
           | J Int | JAL Int | JR Reg
+          -- Load/Store/Move
           | LB Reg Reg Int | LW Reg Reg Int | LUI Reg Int
           | MOVE Reg Reg | LI Reg Int | LA Reg String
           | SB Reg Reg Int | SW Reg Reg Int
-          | SLT Reg Reg Reg | SLTI Reg Reg Int
           | MFHI Reg | MFLO Reg
-          | LABEL String
-          | SYSCALL
+          -- Comparison
+          | SLT Reg Reg Reg | SLTI Reg Reg Int | SEQ Reg Reg Reg | SNE Reg Reg Reg
 
 data Operand = OpReg Reg | OpInt Int | OpStr String
 
@@ -103,6 +108,8 @@ instance Show MIPS where
   show (LA r0 s)      = "  la "     ++ (commas [OpReg r0, OpStr s])
   show (SB r0 r1 i)   = "  sb "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
   show (SW r0 r1 i)   = "  sw "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
+  show (SEQ r0 r1 r2) = "  seq "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
+  show (SNE r0 r1 r2) = "  sne "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
   show (SLT r0 r1 r2) = "  slt "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
   show (SLTI r0 r1 i) = "  slti "   ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (J i)          = "  j "      ++ (show i)
@@ -127,21 +134,26 @@ instance ASM MIPS where
                                          (:) (IR.relocate_instruction (Just reg) Nothing inst) (relocate_regs a nreg insts)
 
 comp_inst :: IR.Vars -> IR.Instruction -> [MIPS]
-comp_inst vars (IR.Unary reg (IR.AReg areg))                 = [MOVE (to_reg reg) (to_reg areg)]
-comp_inst vars (IR.Unary reg (IR.ANumber an))                = [LI (to_reg reg) an]
-comp_inst vars (IR.Unary reg (IR.ALabel lbl))                = [LA (to_reg reg) $ "__st" ++ (show lbl)]
--- Arithmetic
+-- System
+comp_inst vars (IR.Halt)                                     = [LI (VReg 0) 10, SYSCALL]
+-- Arithmetic/Logic
 comp_inst vars (IR.Binary reg regl IR.Plus (IR.AReg regr))   = [ADD  (to_reg reg) (to_reg regl) (to_reg regr)]
 comp_inst vars (IR.Binary reg regl IR.Minus (IR.AReg regr))  = [SUB  (to_reg reg) (to_reg regl) (to_reg regr)]
 comp_inst vars (IR.Binary reg regl IR.Mult (IR.AReg regr))   = [MULT (to_reg regl) (to_reg regr), MFLO (to_reg reg)]
 comp_inst vars (IR.Binary reg regl IR.Div (IR.AReg regr))    = [DIV  (to_reg regl) (to_reg regr), MFLO (to_reg reg)]
 comp_inst vars (IR.Binary reg regl IR.Rem (IR.AReg regr))    = [DIV  (to_reg regl) (to_reg regr), MFHI (to_reg reg)]
 comp_inst vars (IR.Binary reg regl IR.Plus (IR.ANumber n))   = [ADDI (to_reg reg) (to_reg regl) n]
+-- Load/Store/Move
 comp_inst vars (IR.MkLabel l)                                = [LABEL (show l)]
--- Memory
+comp_inst vars (IR.Unary reg (IR.AReg areg))                 = [MOVE (to_reg reg) (to_reg areg)]
+comp_inst vars (IR.Unary reg (IR.ANumber an))                = [LI (to_reg reg) an]
+comp_inst vars (IR.Unary reg (IR.ALabel lbl))                = [LA (to_reg reg) $ "__st" ++ (show lbl)]
 comp_inst vars (IR.Store reg (IR.AAddr addr))                = [SW (to_reg reg) Zero (base_address + addr)]
--- Misc
-comp_inst vars (IR.Halt)                                     = [LI (VReg 0) 10, SYSCALL]
+-- Comparison
+comp_inst vars (IR.Binary reg regl IR.Equal (IR.AReg regr))  = [SEQ (to_reg reg) (to_reg regl) (to_reg regr)]
+comp_inst vars (IR.Binary reg regl IR.Diff (IR.AReg regr))   = [SNE (to_reg reg) (to_reg regl) (to_reg regr)]
+-- Branch/Jump
+--comp_inst vars (IR.Binary reg regl IR.If (IR.AAtom regr))   = [SNE (to_reg reg) (to_reg regl) (to_reg regr)]
 --
 comp_inst vars (IR.Binary reg regl op a)                     = error $ "Unimplemented IR instruction: binary with r = " ++ (show a)
 comp_inst _ i                                                = error $ "Unimplemented IR instruction: " ++ (show i)
