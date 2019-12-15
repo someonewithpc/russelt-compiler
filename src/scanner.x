@@ -11,10 +11,12 @@ tokens :-
     [\ \t\f\v\r\n]+			;
     -- Functions
     fn                                  { \p _ -> TokenFn p }
+    -- Expression followed by Attributions
+    \+\+|\-\-|[\*\/\%\!\<\>\+\-\^\|]\=  { \p s -> TokenOpAtr p s}
     -- Attributions
     \=                                  { \p _ -> TokenAtr p }
     -- Expressions
-    [\+\-\*\/\^\%\!\|\&\=\<\>]+         { \p s -> TokenOp p s }
+    \&\&|\|\||\=\=|[\*\/\%\!\<\>\+\-\^\|]  { \p s -> TokenOp p s }
     -- Miscelaneous
     \(                                  { \p _ -> TokenLB p }
     \)					{ \p _ -> TokenRB p }
@@ -62,6 +64,7 @@ data Token =
            | TokenTInt AlexPosn Type                 -- int type
            | TokenTBool AlexPosn Type                -- bool type
            | TokenTString AlexPosn                   -- string type
+           | TokenOpAtr AlexPosn String
            -- Attributions
            | TokenLet AlexPosn                       -- let
            | TokenAtr AlexPosn                       -- =
@@ -103,6 +106,7 @@ token_pos (TokenString p _) = p
 token_pos (TokenTBool p _) = p
 token_pos (TokenTInt p _) = p
 token_pos (TokenLet p) = p
+token_pos (TokenOpAtr p _) = p
 token_pos (TokenAtr p) = p
 token_pos (TokenOp p _) = p
 token_pos (TokenIdentifier p _) = p

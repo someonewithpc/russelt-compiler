@@ -34,7 +34,7 @@ import Data.List
   '!'                                   { TokenOp _ "!" }
   '||'                                  { TokenOp _ "||" }
   '&&'                                  { TokenOp _ "&&" }
-    -- Boolean Comparisons
+    -- Comparisons
   '=='                                  { TokenOp _ "==" }
   '!='                                  { TokenOp _ "!=" }
   '<'                                   { TokenOp _ "<" }
