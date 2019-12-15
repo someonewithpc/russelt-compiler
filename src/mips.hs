@@ -62,9 +62,10 @@ data MIPS = NOOP
           | AND Reg Reg Reg | ANDI Reg Reg Int | OR Reg Reg Reg | ORI Reg Reg Int
           -- Branch and Jump
           | LABEL String
-          | BEQ Reg Reg Int | BGEZ Reg Int | BGEZAL Reg Int | BGTZ Reg Int
-          | BLTZ Reg Int | BLTZAL Reg Int | BNE Reg Reg Int
-          | J Int | JAL Int | JR Reg
+          | BEQ Reg Reg Int | BNE Reg Reg Int | BLT Reg Reg Int | BGT Reg Reg Int
+          | BLE Reg Reg Int | BGE Reg Reg Int | BGEZ Reg Int | BGEZAL Reg Int
+          | BGTZ Reg Int | BLTZ Reg Int | BLTZAL Reg Int
+          | J Int | JALi Int | JALs String | JR Reg
           -- Load/Store/Move
           | LB Reg Reg Int | LW Reg Reg Int | LUI Reg Int
           | MOVE Reg Reg | LI Reg Int | LA Reg String
@@ -84,7 +85,10 @@ commas :: [Operand] -> String
 commas = intercalate ", " . map show
 
 instance Show MIPS where
+  -- System
   show (NOOP)         = "  noop"
+  show (SYSCALL)      = "  syscall"
+  -- Arithmetic/Logic
   show (ADD r0 r1 r2) = "  add "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
   show (ADDI r0 r1 i) = "  addi "   ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (MULT r0 r1)   = "  mult "   ++ (commas [OpReg r0, OpReg r1])
@@ -94,13 +98,20 @@ instance Show MIPS where
   show (ANDI r0 r1 i) = "  andi "   ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (OR r0 r1 r2)  = "  or "     ++ (commas [OpReg r0, OpReg r1, OpReg r2])
   show (ORI r0 r1 i)  = "  ori "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  -- Branch and Jump
   show (BEQ r0 r1 i)  = "  beq "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (BNE r0 r1 i)  = "  bne "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (BLT r0 r1 i)  = "  blt "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (BGT r0 r1 i)  = "  bgt "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (BLE r0 r1 i)  = "  ble "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (BGE r0 r1 i)  = "  bge "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (BGEZ r0 i)    = "  bgez "   ++ (commas [OpReg r0, OpInt i])
   show (BGEZAL r0 i)  = "  bgezal " ++ (commas [OpReg r0, OpInt i])
   show (BGTZ r0 i)    = "  bgtz "   ++ (commas [OpReg r0, OpInt i])
   show (BLTZ r0 i)    = "  bltz "   ++ (commas [OpReg r0, OpInt i])
   show (BLTZAL r0 i)  = "  bltzal " ++ (commas [OpReg r0, OpInt i])
-  show (BNE r0 r1 i)  = "  bne "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  -- Load/Store/Move
+  show (LABEL s)      = s ++ ":"
   show (LW r0 r1 i)   = "  lw "     ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (LUI r0 i)     = "  lui "    ++ (commas [OpReg r0, OpInt i])
   show (MOVE r0 r1)   = "  move "   ++ (commas [OpReg r0, OpReg r1])
@@ -108,18 +119,18 @@ instance Show MIPS where
   show (LA r0 s)      = "  la "     ++ (commas [OpReg r0, OpStr s])
   show (SB r0 r1 i)   = "  sb "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
   show (SW r0 r1 i)   = "  sw "     ++ (show r0) ++ ", " ++ (show i) ++ "(" ++ (show r1) ++ ")"
-  show (SEQ r0 r1 r2) = "  seq "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
-  show (SNE r0 r1 r2) = "  sne "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
-  show (SLT r0 r1 r2) = "  slt "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
-  show (SLTI r0 r1 i) = "  slti "   ++ (commas [OpReg r0, OpReg r1, OpInt i])
   show (J i)          = "  j "      ++ (show i)
-  show (JAL i)        = "  jal "    ++ (show i)
+  show (JALi i)       = "  jal "    ++ (show i)
+  show (JALs s)       = "  jal "    ++ (show s)
   show (JR r0)        = "  jr "     ++ (show r0)
   show (LB r0 r1 i)   = "  lb "     ++ (show r0)
   show (MFHI r0)      = "  mfhi "   ++ (show r0)
   show (MFLO r0)      = "  mflo "   ++ (show r0)
-  show (SYSCALL)      = "  syscall"
-  show (LABEL s)      = s ++ ":"
+  -- Comparison
+  show (SLT r0 r1 r2) = "  slt "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
+  show (SLTI r0 r1 i) = "  slti "   ++ (commas [OpReg r0, OpReg r1, OpInt i])
+  show (SEQ r0 r1 r2) = "  seq "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
+  show (SNE r0 r1 r2) = "  sne "    ++ (commas [OpReg r0, OpReg r1, OpReg r2])
 
 next_reg :: IR.Reg -> IR.Reg
 next_reg (IR.Reg r) | r == 0    = IR.Reg 2
@@ -153,7 +164,32 @@ comp_inst vars (IR.Store reg (IR.AAddr addr))                = [SW (to_reg reg) 
 comp_inst vars (IR.Binary reg regl IR.Equal (IR.AReg regr))  = [SEQ (to_reg reg) (to_reg regl) (to_reg regr)]
 comp_inst vars (IR.Binary reg regl IR.Diff (IR.AReg regr))   = [SNE (to_reg reg) (to_reg regl) (to_reg regr)]
 -- Branch/Jump
---comp_inst vars (IR.Binary reg regl IR.If (IR.AAtom regr))   = [SNE (to_reg reg) (to_reg regl) (to_reg regr)]
+comp_inst vars (IR.Goto (IR.LabelI label)) = [JALi (fromIntegral label)]
+comp_inst vars (IR.Goto (IR.LabelS label)) = [JALs label]
+comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.ANumber 0) (IR.LabelI label) Nothing) = [BEQ (to_reg n1) (to_reg IR.reg0) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.ANumber 0) (IR.LabelI label) Nothing) = [BNE (to_reg n1) (to_reg IR.reg0) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.AReg n2) (IR.LabelI label) Nothing) = [BEQ (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.AReg n2) (IR.LabelI label) Nothing) = [BNE (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Lt (IR.AReg n2) (IR.LabelI label) Nothing) = [BLT (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Gt (IR.AReg n2) (IR.LabelI label) Nothing) = [BGT (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Le (IR.AReg n2) (IR.LabelI label) Nothing) = [BLE (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Ge (IR.AReg n2) (IR.LabelI label) Nothing) = [BGE (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.ANumber 0) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BEQ (to_reg n1) (to_reg IR.reg0) (fromIntegral label),
+                                                                                                             JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.ANumber 0) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BNE (to_reg n1) (to_reg IR.reg0) (fromIntegral label),
+                                                                                                             JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BEQ (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                             JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BNE (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                             JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Lt (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BLT (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                            JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Gt (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BGT (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                            JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Le (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BLE (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                            JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Ge (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BGE (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                             JALi (fromIntegral label_else)]
 --
 comp_inst vars (IR.Binary reg regl op a)                     = error $ "Unimplemented IR instruction: binary with r = " ++ (show a)
 comp_inst _ i                                                = error $ "Unimplemented IR instruction: " ++ (show i)
