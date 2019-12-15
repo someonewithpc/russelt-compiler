@@ -147,6 +147,7 @@ instance ASM MIPS where
 comp_inst :: IR.Vars -> IR.Instruction -> [MIPS]
 -- System
 comp_inst vars (IR.Halt)                                     = [LI (VReg 0) 10, SYSCALL]
+comp_inst vars (IR.PrintLn reg)                              = [MOVE (AReg 0) (to_reg reg), LI (VReg 0) 4, SYSCALL]
 -- Arithmetic/Logic
 comp_inst vars (IR.Binary reg regl IR.Plus (IR.AReg regr))   = [ADD  (to_reg reg) (to_reg regl) (to_reg regr)]
 comp_inst vars (IR.Binary reg regl IR.Minus (IR.AReg regr))  = [SUB  (to_reg reg) (to_reg regl) (to_reg regr)]
