@@ -44,6 +44,7 @@ instance Show Reg where
   show (VReg i) = "$v" ++ (show i)
   show (AReg i) = "$a" ++ (show i)
   show (TReg i) = "$t" ++ (show i)
+  show (SReg i) = "$s" ++ (show i)
   show GP       = "$gp"
   show SP       = "$sp"
   show FP       = "$fp"
@@ -168,32 +169,32 @@ comp_inst vars (IR.Load reg (IR.AAddr addr))                 = [LA (to_reg reg) 
 comp_inst vars (IR.Binary reg regl IR.Equal (IR.AReg regr))  = [SEQ (to_reg reg) (to_reg regl) (to_reg regr)]
 comp_inst vars (IR.Binary reg regl IR.Diff (IR.AReg regr))   = [SNE (to_reg reg) (to_reg regl) (to_reg regr)]
 -- Branch/Jump
-comp_inst vars (IR.Goto (IR.LabelI label)) = [JALi (fromIntegral label)]
-comp_inst vars (IR.Goto (IR.LabelS label)) = [JALs label]
+comp_inst vars (IR.Goto (IR.LabelI label))                   = [JALi (fromIntegral label)]
+comp_inst vars (IR.Goto (IR.LabelS label))                   = [JALs label]
 comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.ANumber 0) (IR.LabelI label) Nothing) = [BEQ (to_reg n1) (to_reg IR.reg0) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.ANumber 0) (IR.LabelI label) Nothing) = [BNE (to_reg n1) (to_reg IR.reg0) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.AReg n2) (IR.LabelI label) Nothing) = [BEQ (to_reg n1) (to_reg n2) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.AReg n2) (IR.LabelI label) Nothing) = [BNE (to_reg n1) (to_reg n2) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Lt (IR.AReg n2) (IR.LabelI label) Nothing) = [BLT (to_reg n1) (to_reg n2) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Gt (IR.AReg n2) (IR.LabelI label) Nothing) = [BGT (to_reg n1) (to_reg n2) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Le (IR.AReg n2) (IR.LabelI label) Nothing) = [BLE (to_reg n1) (to_reg n2) (fromIntegral label)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Ge (IR.AReg n2) (IR.LabelI label) Nothing) = [BGE (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.ANumber 0) (IR.LabelI label) Nothing)  = [BNE (to_reg n1) (to_reg IR.reg0) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.AReg n2) (IR.LabelI label) Nothing)   = [BEQ (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.AReg n2) (IR.LabelI label) Nothing)    = [BNE (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Lt (IR.AReg n2) (IR.LabelI label) Nothing)      = [BLT (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Gt (IR.AReg n2) (IR.LabelI label) Nothing)      = [BGT (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Le (IR.AReg n2) (IR.LabelI label) Nothing)      = [BLE (to_reg n1) (to_reg n2) (fromIntegral label)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Ge (IR.AReg n2) (IR.LabelI label) Nothing)      = [BGE (to_reg n1) (to_reg n2) (fromIntegral label)]
 comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.ANumber 0) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BEQ (to_reg n1) (to_reg IR.reg0) (fromIntegral label),
-                                                                                                             JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.ANumber 0) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BNE (to_reg n1) (to_reg IR.reg0) (fromIntegral label),
-                                                                                                             JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BEQ (to_reg n1) (to_reg n2) (fromIntegral label),
-                                                                                                             JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BNE (to_reg n1) (to_reg n2) (fromIntegral label),
-                                                                                                             JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Lt (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BLT (to_reg n1) (to_reg n2) (fromIntegral label),
-                                                                                                            JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Gt (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BGT (to_reg n1) (to_reg n2) (fromIntegral label),
-                                                                                                            JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Le (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BLE (to_reg n1) (to_reg n2) (fromIntegral label),
-                                                                                                            JALi (fromIntegral label_else)]
-comp_inst vars (IR.If (IR.AReg n1) IR.Ge (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else))) = [BGE (to_reg n1) (to_reg n2) (fromIntegral label),
-                                                                                                             JALi (fromIntegral label_else)]
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.ANumber 0) (IR.LabelI label) (Just (IR.LabelI label_else)))  = [BNE (to_reg n1) (to_reg IR.reg0) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Equal (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else)))   = [BEQ (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Diff (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else)))    = [BNE (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Lt (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else)))      = [BLT (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Gt (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else)))      = [BGT (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Le (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else)))      = [BLE (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
+comp_inst vars (IR.If (IR.AReg n1) IR.Ge (IR.AReg n2) (IR.LabelI label) (Just (IR.LabelI label_else)))      = [BGE (to_reg n1) (to_reg n2) (fromIntegral label),
+                                                                                                               JALi (fromIntegral label_else)]
 --
 comp_inst vars (IR.Binary reg regl op a)                     = error $ "Unimplemented IR instruction: binary with r = " ++ (show a)
 comp_inst _ i                                                = error $ "Unimplemented IR instruction: " ++ (show i)

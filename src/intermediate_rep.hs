@@ -85,8 +85,8 @@ data Atom = AReg Reg
 instance Show Atom where
   show (AReg r) = show r
   show (ANumber i) = show i
-  show (AAddr a) = "$" ++ show a
-  show (ALabel s) = "#" ++ show s
+  show (AAddr a) = "#" ++ show a
+  show (ALabel s) = "lbl-" ++ show s
 
 relocate_atom :: Maybe Reg -> Atom -> Atom
 relocate_atom (Just l) (AReg r) = AReg $ l + r
