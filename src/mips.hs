@@ -161,6 +161,8 @@ comp_inst vars (IR.Unary reg (IR.AReg areg))                 = [MOVE (to_reg reg
 comp_inst vars (IR.Unary reg (IR.ANumber an))                = [LI (to_reg reg) an]
 comp_inst vars (IR.Unary reg (IR.ALabel lbl))                = [LA (to_reg reg) $ "__st" ++ (show lbl)]
 comp_inst vars (IR.Store reg (IR.AAddr addr))                = [SW (to_reg reg) Zero (base_address + addr)]
+comp_inst vars (IR.Load reg (IR.ANumber an))                 = [LI (to_reg reg) an]
+comp_inst vars (IR.Load reg (IR.AAddr addr))                 = [LA (to_reg reg) (show addr)]
 -- Comparison
 comp_inst vars (IR.Binary reg regl IR.Equal (IR.AReg regr))  = [SEQ (to_reg reg) (to_reg regl) (to_reg regr)]
 comp_inst vars (IR.Binary reg regl IR.Diff (IR.AReg regr))   = [SNE (to_reg reg) (to_reg regl) (to_reg regr)]
