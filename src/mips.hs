@@ -26,7 +26,7 @@ instance Num Reg where
                 | i >= 8 && i <= 15  = TReg (i - 8)
                 | i >= 16 && i <= 23 = SReg (i - 16)
                 | i >= 24 && i <= 25 = TReg (i - 16)
-                | i >= 26 && i <= 27 = error "Register is reserved for OS, $k0/$k1 registersXS"
+                | i >= 26 && i <= 27 = error "Register is reserved for OS, $k0/$k1 registers"
                 | i == 28            = GP
                 | i == 29            = SP
                 | i == 30            = FP
@@ -51,6 +51,7 @@ instance Show Reg where
   show RA       = "$ra"
 
 to_reg :: IR.Reg -> Reg
+to_reg (IR.Reg 1) = fromInteger 2
 to_reg (IR.Reg i) = fromInteger i :: Reg
 
 -- Instructions
@@ -136,15 +137,17 @@ instance Show MIPS where
 
 next_reg :: IR.Reg -> IR.Reg
 next_reg (IR.Reg r) | r == 0    = IR.Reg 2
-                    | r == 1    = error "Unusable reg"
+                    | r == 1    = IR.Reg 3
                     | r >= 25   = error "No more general purpose registers"
-                    | otherwise = IR.Reg $ succ r
+                    | otherwise = IR.Reg $ r + 2
 
 instance ASM MIPS where
   compile vars ir@(inst, _, _) = concat $ map (comp_inst vars) $ relocate_regs NOOP IR.reg0 inst
-  relocate_regs _ _ [] = []
-  relocate_regs a reg (inst : insts) = let nreg = next_reg reg in
-                                         (:) (IR.relocate_instruction (Just reg) Nothing inst) (relocate_regs a nreg insts)
+  relocate_regs _ _ a = a
+  -- relocate_regs _ _ [] = []
+  -- relocate_regs a reg (inst@(IR.If (IR.AReg regr) _ _ _ _) : insts) = (:) (IR.relocate_instruction (Just reg) Nothing inst) (relocate_regs a IR.reg0 insts)
+  -- relocate_regs a reg (inst : insts) = let nreg = next_reg reg in
+  --                                        (:) (IR.relocate_instruction (Just reg) Nothing inst) (relocate_regs a nreg insts)
 
 comp_inst :: IR.Vars -> IR.Instruction -> [MIPS]
 -- System
