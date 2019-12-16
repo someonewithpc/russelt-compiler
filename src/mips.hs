@@ -51,8 +51,7 @@ instance Show Reg where
   show RA       = "$ra"
 
 to_reg :: IR.Reg -> Reg
-to_reg (IR.Reg 1) = fromInteger 2
-to_reg (IR.Reg i) = fromInteger i :: Reg
+to_reg (IR.Reg i) = fromInteger (i + 4) :: Reg
 
 -- Instructions
 
@@ -143,7 +142,7 @@ next_reg (IR.Reg r) | r == 0    = IR.Reg 2
 
 instance ASM MIPS where
   compile vars ir@(inst, _, _) = concat $ map (comp_inst vars) $ relocate_regs NOOP IR.reg0 inst
-  relocate_regs _ _ a = a
+  relocate_regs _ _ a = a -- map (IR.relocate_instruction (Just IR.reg1) Nothing) a
   -- relocate_regs _ _ [] = []
   -- relocate_regs a reg (inst@(IR.If (IR.AReg regr) _ _ _ _) : insts) = (:) (IR.relocate_instruction (Just reg) Nothing inst) (relocate_regs a IR.reg0 insts)
   -- relocate_regs a reg (inst : insts) = let nreg = next_reg reg in
