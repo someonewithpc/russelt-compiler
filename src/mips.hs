@@ -76,12 +76,13 @@ data MIPS =
           -- Comparison
           | SLT Reg Reg Reg | SLTI Reg Reg Int | SEQ Reg Reg Reg | SNE Reg Reg Reg
 
-data Operand = OpReg Reg | OpInt Int | OpStr String
+data Operand = OpReg Reg | OpInt Int | OpStr String | OpLabel Int
 
 instance Show Operand where
   show (OpReg r) = show r
   show (OpInt i) = show i
   show (OpStr s) = s
+  show (OpLabel i) = show (IR.LabelI $ fromIntegral i)
 
 commas :: [Operand] -> String
 commas = intercalate ", " . map show
@@ -102,19 +103,19 @@ instance Show MIPS where
   show (ORI r0 r1 i)  = "  ori "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
   -- Branch and Jump
   show (LABEL s)      = s ++ ":"
-  show (BEQ r0 r1 i)  = "  beq "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (BNE r0 r1 i)  = "  bne "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (BLT r0 r1 i)  = "  blt "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (BGT r0 r1 i)  = "  bgt "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (BLE r0 r1 i)  = "  ble "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (BGE r0 r1 i)  = "  bge "    ++ (commas [OpReg r0, OpReg r1, OpInt i])
-  show (BGEZ r0 i)    = "  bgez "   ++ (commas [OpReg r0, OpInt i])
-  show (BGEZAL r0 i)  = "  bgezal " ++ (commas [OpReg r0, OpInt i])
-  show (BGTZ r0 i)    = "  bgtz "   ++ (commas [OpReg r0, OpInt i])
-  show (BLTZ r0 i)    = "  bltz "   ++ (commas [OpReg r0, OpInt i])
-  show (BLTZAL r0 i)  = "  bltzal " ++ (commas [OpReg r0, OpInt i])
-  show (J i)          = "  j "      ++ (show i)
-  show (JALi i)       = "  jal "    ++ (show i)
+  show (BEQ r0 r1 i)  = "  beq "    ++ (commas [OpReg r0, OpReg r1, OpLabel i])
+  show (BNE r0 r1 i)  = "  bne "    ++ (commas [OpReg r0, OpReg r1, OpLabel i])
+  show (BLT r0 r1 i)  = "  blt "    ++ (commas [OpReg r0, OpReg r1, OpLabel i])
+  show (BGT r0 r1 i)  = "  bgt "    ++ (commas [OpReg r0, OpReg r1, OpLabel i])
+  show (BLE r0 r1 i)  = "  ble "    ++ (commas [OpReg r0, OpReg r1, OpLabel i])
+  show (BGE r0 r1 i)  = "  bge "    ++ (commas [OpReg r0, OpReg r1, OpLabel i])
+  show (BGEZ r0 i)    = "  bgez "   ++ (commas [OpReg r0, OpLabel i])
+  show (BGEZAL r0 i)  = "  bgezal " ++ (commas [OpReg r0, OpLabel i])
+  show (BGTZ r0 i)    = "  bgtz "   ++ (commas [OpReg r0, OpLabel i])
+  show (BLTZ r0 i)    = "  bltz "   ++ (commas [OpReg r0, OpLabel i])
+  show (BLTZAL r0 i)  = "  bltzal " ++ (commas [OpReg r0, OpLabel i])
+  show (J i)          = "  j "      ++ (show (IR.LabelI $ fromIntegral i))
+  show (JALi i)       = "  jal "    ++ (show (IR.LabelI $ fromIntegral i))
   show (JALs s)       = "  jal "    ++ (show s)
   show (JR r0)        = "  jr "     ++ (show r0)
   -- Load/Store/Move
