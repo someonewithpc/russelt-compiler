@@ -12,7 +12,7 @@ tokens :-
     -- Functions
     fn                                  { \p _ -> TokenFn p }
     -- Expression followed by Attribution
-    \+\+|\-\-|[\*\/\%\+\-]\=            { \p s -> TokenOpAtr p s}
+ \   \+\+|\-\-|[\*\/\%\+\-]\=           { \p s -> TokenOpAtr p s}
     -- Attributions
     \=                                  { \p _ -> TokenAtr p }
     -- Expressions

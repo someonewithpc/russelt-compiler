@@ -20,13 +20,10 @@ data Reg = Zero | VReg Integer | AReg Integer | TReg Integer | SReg Integer | GP
 
 instance Num Reg where
   fromInteger i | i == 0             = Zero
-                | i == 1             = error "Register r1 is reserved for assembler, $at register"
-                | i >= 2 && i <= 3   = VReg (i - 2)
-                | i >= 4 && i <= 7   = AReg (i - 4)
-                | i >= 8 && i <= 15  = TReg (i - 8)
-                | i >= 16 && i <= 23 = SReg (i - 16)
-                | i >= 24 && i <= 25 = TReg (i - 16)
-                | i >= 26 && i <= 27 = error "Register is reserved for OS, $k0/$k1 registers"
+                | i >= 1 && i <= 9   = SReg (i - 1)
+                | i >= 10 && i <= 14 = AReg (i - 10)
+                | i >= 15 && i <= 25 = TReg (i - 15)
+                | i >= 26 && i <= 28 = VReg (i - 26)
                 | i == 28            = GP
                 | i == 29            = SP
                 | i == 30            = FP
@@ -51,7 +48,7 @@ instance Show Reg where
   show RA       = "$ra"
 
 to_reg :: IR.Reg -> Reg
-to_reg (IR.Reg i) = fromInteger (i + 4) :: Reg
+to_reg (IR.Reg i) = fromInteger (i + 1) :: Reg
 
 -- Instructions
 
