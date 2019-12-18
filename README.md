@@ -12,8 +12,9 @@ and Spacewar!.
 
 ## Usage
 
+0. Install https://hackage.haskell.org/package/ `optparse-applicative` -0.13.2.0/docs/Options-Applicative.html via cabal
 1. Run `make` to compile the program
-2. ` ./parser < some_input_file.rs`
+2. ` ./compiler some_input_file.rs` and it will generate an `out.asm` (check the help menu for more)
 3. Run `make clean` to cleanup when you’re done
 
 ## Supported Syntax
