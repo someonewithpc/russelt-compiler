@@ -8,6 +8,7 @@ $digit = [0-9]
 $alpha = [a-zA-Z]
 
 tokens :-
+    \/\/.*                              ;
     [\ \t\f\v\r\n]+			;
     -- Functions
     fn                                  { \p _ -> TokenFn p }
