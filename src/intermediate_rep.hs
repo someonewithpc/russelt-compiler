@@ -201,6 +201,7 @@ inst_blk (Halt)                 = ([Halt],                 Nothing,   Nothing)
 
 resequence :: [Blk] -> Blk
 resequence (blk : blks) = foldl merge_blk blk blks
+resequence [] = ([], Nothing, Nothing)
 
 norelocate_concat :: [Blk] -> Blk
 norelocate_concat [] = error "Cannot concat empty Blk list"
@@ -245,10 +246,10 @@ ir_exp vars (LitExp (VTBool b))   = (,) vars $ inst_blk $ Unary reg0 (ANumber $ 
 ir_exp vars (LitExp (VTString s)) = let (Just lbl, vars') = updateLookupWithKey (\_ -> Just . succ) statics_label_counter vars in
                                       (,) vars' $ inst_blk $ Unary reg0 (ALabel lbl)
 ir_exp vars (Var s)               = (,) vars $ inst_blk $ Load reg0 (AAddr $ vars ! s)
-ir_exp vars (UnaryOp so (Var s))  = (,) vars $ norelocate_concat [snd $ ir_exp vars (Var s), inst_blk (Binary reg0 reg0 (read (take 1 so) :: Op) (ANumber 1))]
+ir_exp vars (UnaryOp so (Var s))  = (,) vars $ norelocate_concat [snd $ ir_exp vars (Var s), inst_blk (Binary reg0 reg0 (read (so) :: Op) (ANumber 1))]
 ir_exp vars (BinaryOp (Var s) so er) = let (vars', blke@(_, re, _)) = ir_exp vars er
                                            (_,     blkv@(_, rv, _)) = ir_exp vars (Var s) in
-                                         (,) vars' $ norelocate_concat [resequence [blke, blkv], inst_blk $ Binary (succ $ fromJust rv) (succ $ fromJust rv) (read (take 1 so) :: Op) (AReg $ fromJust re)]
+                                         (,) vars' $ norelocate_concat [resequence [blke, blkv], inst_blk $ Binary (succ $ fromJust rv) (succ $ fromJust rv) (read (so) :: Op) (AReg $ fromJust re)]
                                          -- (,) vars' (insv ++ inse ++ [Binary (fromJust rv) (fromJust rv) (read (take 1 so) :: Op) (AReg $ fromJust re)], rv, (succ <$> lr))
 ir_exp vars (BinaryOp el so er) = let (vars', blkl@(insl, rl, _)) = ir_exp vars el
                                       (vars'', blkr)              = ir_exp vars' er

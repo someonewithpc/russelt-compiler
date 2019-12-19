@@ -157,6 +157,9 @@ comp_inst vars (IR.Binary reg regl IR.Mult (IR.AReg regr))   = [MULT (to_reg reg
 comp_inst vars (IR.Binary reg regl IR.Div (IR.AReg regr))    = [DIV  (to_reg regl) (to_reg regr), MFLO (to_reg reg)]
 comp_inst vars (IR.Binary reg regl IR.Rem (IR.AReg regr))    = [DIV  (to_reg regl) (to_reg regr), MFHI (to_reg reg)]
 comp_inst vars (IR.Binary reg regl IR.Plus (IR.ANumber n))   = [ADDI (to_reg reg) (to_reg regl) n]
+
+comp_inst vars (IR.Binary reg regl IR.And (IR.AReg regr))   = [AND  (to_reg reg) (to_reg regl) (to_reg regr)]
+comp_inst vars (IR.Binary reg regl IR.Or (IR.AReg regr))  = [OR  (to_reg reg) (to_reg regl) (to_reg regr)]
 -- Load/Store/Move
 comp_inst vars (IR.MkLabel l)                                = [LABEL (show l)]
 comp_inst vars (IR.Unary reg (IR.AReg areg))                 = [MOVE (to_reg reg) (to_reg areg)]

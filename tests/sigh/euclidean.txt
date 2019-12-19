@@ -2,12 +2,6 @@ fn main() {
   let a = 21;
   let b = 105;
 
-  // println!("Please insert value of 'a': ");
-  read_line(a);
-
-  // println!("Please insert value of 'b': ");
-  read_line(b);
-
   while b != 0 {
     t = b;
     b = a % b;
